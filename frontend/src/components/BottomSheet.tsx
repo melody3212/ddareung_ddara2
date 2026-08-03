@@ -57,7 +57,7 @@ export function BottomSheet({ children }: Props) {
 
   return (
     <div
-      className="absolute bottom-14 left-0 right-0 z-30 flex flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[height] duration-300 ease-out"
+      className="absolute bottom-14 left-0 right-0 z-30 flex flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[height] duration-300 ease-out pointer-events-auto"
       style={{ height: SNAP_H[sheetSnap] }}
     >
       {/* 드래그 핸들 */}

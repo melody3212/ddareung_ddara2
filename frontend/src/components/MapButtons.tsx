@@ -1,8 +1,8 @@
 /**
  * 원본 MapButtons — 우측: 도로 / 대여소
- * 내 위치는 우측 하단 별도 버튼 (요구사항)
+ * 내 위치: 우측 하단 (시트·네비 위에 항상 보이도록)
  */
-import { useUiStore } from '../store/uiStore'
+import { useUiStore, type SheetSnap } from '../store/uiStore'
 
 export function MapButtons() {
   const {
@@ -39,17 +39,31 @@ export function MapButtons() {
   )
 }
 
-/** 우측 하단 — 현재 내 위치로 지도 이동 */
+/** 시트 높이 + 하단 네비 위 — 항상 보이도록 z-50 */
+const LOC_BOTTOM: Record<SheetSnap, string> = {
+  // nav 56px + sheet + gap
+  collapsed: 'calc(3.5rem + 72px + 16px)',
+  half: 'calc(3.5rem + min(42vh, 320px) + 16px)',
+  // 전체 시트일 때는 네비 바로 위 시트 위에 띄움
+  full: 'calc(3.5rem + 16px)',
+}
+
 export function MyLocationButton({ onClick }: { onClick: () => void }) {
+  const sheetSnap = useUiStore((s) => s.sheetSnap)
+
   return (
     <button
       type="button"
       onClick={onClick}
       title="현재 내 위치"
       aria-label="현재 내 위치로 지도 이동"
-      className="absolute bottom-[calc(3.5rem+12px)] right-3 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-xl shadow-lg hover:bg-slate-50 active:scale-95"
+      style={{ bottom: LOC_BOTTOM[sheetSnap] }}
+      className="absolute right-3 z-50 flex h-12 w-12 items-center justify-center rounded-full border-2 border-blue-500 bg-white text-blue-600 shadow-xl transition hover:bg-blue-50 active:scale-95"
     >
-      ◎
+      <span className="relative flex h-5 w-5 items-center justify-center">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-30" />
+        <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-600" />
+      </span>
     </button>
   )
 }
