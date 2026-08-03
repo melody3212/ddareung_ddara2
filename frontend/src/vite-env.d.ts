@@ -18,14 +18,17 @@ declare namespace kakao {
       getLng(): number
     }
     class LatLngBounds {
-      constructor()
+      constructor(sw?: LatLng, ne?: LatLng)
       extend(latlng: LatLng): void
+      getSouthWest(): LatLng
+      getNorthEast(): LatLng
     }
     class Map {
       constructor(container: HTMLElement, options: object)
       setCenter(latlng: LatLng): void
       setLevel(level: number): void
       setBounds(bounds: LatLngBounds, padding?: number): void
+      getBounds(): LatLngBounds
       relayout(): void
     }
     class Marker {
@@ -40,6 +43,10 @@ declare namespace kakao {
     }
     class Polyline {
       constructor(options: object)
+      setMap(map: Map | null): void
+    }
+    class GroundOverlay {
+      constructor(src: string, bounds: LatLngBounds, options?: object)
       setMap(map: Map | null): void
     }
     class CustomOverlay {

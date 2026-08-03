@@ -55,6 +55,14 @@ export type BikePath = {
   is_disconnected: boolean
 }
 
+export type BikePathMeta = {
+  source: 'safemap_wms' | 'mock' | string
+  configured: boolean
+  layer: string | null
+  note: string
+  docs_url: string
+}
+
 export const api = {
   health: () => request<{ status: string; app: string }>('/health'),
   stations: () => request<Station[]>('/stations'),
@@ -69,4 +77,26 @@ export const api = {
     return request<Weather>(`/weather${qs ? `?${qs}` : ''}`)
   },
   bikePaths: () => request<BikePath[]>('/bike-paths'),
+  bikePathsMeta: () => request<BikePathMeta>('/bike-paths/meta'),
+  /** Safemap WMS 프록시 PNG URL (현재 지도 bbox용) */
+  bikePathsWmsUrl: (bbox: {
+    minx: number
+    miny: number
+    maxx: number
+    maxy: number
+    width?: number
+    height?: number
+  }) => {
+    const q = new URLSearchParams({
+      minx: String(bbox.minx),
+      miny: String(bbox.miny),
+      maxx: String(bbox.maxx),
+      maxy: String(bbox.maxy),
+      width: String(bbox.width ?? 768),
+      height: String(bbox.height ?? 768),
+    })
+    // cache-bust so pan/zoom always refreshes
+    q.set('_', String(Date.now()))
+    return `${BASE}/bike-paths/wms?${q.toString()}`
+  },
 }

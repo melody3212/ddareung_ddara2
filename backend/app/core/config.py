@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     weather_api_key: str | None = None
     air_api_key: str | None = None
     redis_url: str | None = None
+    # 생활안전지도(safemap) 자전거길 WMS — https://www.safemap.go.kr/opna/data/dataViewRenew.do?objtId=219
+    safemap_service_key: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
