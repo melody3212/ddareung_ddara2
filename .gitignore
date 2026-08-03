@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/.venv/
+backend/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Build / dist
+frontend/dist/
+frontend/dev-dist/
+backend/dist/
+*.egg-info/
+.coverage
+htmlcov/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs & local
+*.log
+.npm
+.cache/
+tmp/
+temp/
+
+# Local DB / data dumps
+*.db
+*.sqlite3
+backend/data/local/
+
+# Office lock / temp
+~$*
+*.tmp
