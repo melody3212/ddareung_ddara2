@@ -16,18 +16,16 @@ export function HomePage() {
   const stationsQ = useQuery({ queryKey: ['stations'], queryFn: api.stations })
   const weatherQ = useQuery({ queryKey: ['weather'], queryFn: () => api.weather() })
   const coursesQ = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() })
-  const pathsQ = useQuery({ queryKey: ['bike-paths'], queryFn: api.bikePaths })
 
   return (
     <div className="relative min-h-full bg-slate-100 pb-16">
-      {/* 우측 상단 세로 토글 */}
+      {/* 우측 상단 세로 토글 (대여소 / 자전거도로) */}
       <MapLayerToggles />
 
       <KakaoMap
         showStations={showStations}
         showBikePaths={showBikePaths}
         stations={stationsQ.data}
-        bikePaths={pathsQ.data}
         className="h-[58vh] min-h-[320px] w-full"
       />
 

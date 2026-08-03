@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadKakaoMaps } from '../lib/loadKakaoMap'
-import { api, type BikePath, type BikePathMeta, type Station } from '../lib/api'
+import type { Station } from '../lib/api'
+import {
+  courseTypeColor,
+  loadBikeRoads,
+  type BikeRoadLine,
+} from '../lib/bikeRoad'
 
-/** mock 폴리라인 통일 색 (Safemap 키 없을 때만) */
-const MOCK_PATH_COLOR = '#22c55e'
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 
 type Props = {
   showStations: boolean
   showBikePaths: boolean
   stations?: Station[]
-  bikePaths?: BikePath[]
   className?: string
 }
 
@@ -18,30 +20,21 @@ export function KakaoMap({
   showStations,
   showBikePaths,
   stations = [],
-  bikePaths = [],
   className,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<kakao.maps.Map | null>(null)
   const markersRef = useRef<kakao.maps.Marker[]>([])
   const polylinesRef = useRef<kakao.maps.Polyline[]>([])
-  const groundOverlayRef = useRef<kakao.maps.GroundOverlay | null>(null)
   const infoRef = useRef<kakao.maps.InfoWindow | null>(null)
   const didFitStationsRef = useRef(false)
-  const idleTimerRef = useRef<number | null>(null)
-  const showBikePathsRef = useRef(showBikePaths)
-  const useWmsRef = useRef(false)
-  const wmsReqIdRef = useRef(0)
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [pathMeta, setPathMeta] = useState<BikePathMeta | null>(null)
-  const [wmsError, setWmsError] = useState<string | null>(null)
+  const [bikeRoads, setBikeRoads] = useState<BikeRoadLine[] | null>(null)
+  const [roadError, setRoadError] = useState<string | null>(null)
 
-  showBikePathsRef.current = showBikePaths
-  useWmsRef.current = Boolean(pathMeta?.configured)
-
-  // Init map once
+  // Init map
   useEffect(() => {
     let cancelled = false
 
@@ -71,34 +64,28 @@ export function KakaoMap({
     void init()
     return () => {
       cancelled = true
-      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current)
       markersRef.current.forEach((m) => m.setMap(null))
       polylinesRef.current.forEach((p) => p.setMap(null))
-      groundOverlayRef.current?.setMap(null)
       markersRef.current = []
       polylinesRef.current = []
-      groundOverlayRef.current = null
       mapRef.current = null
     }
   }, [])
 
-  // meta
+  // GeoJSON 자전거도로 (원본과 동일 경로)
   useEffect(() => {
     let cancelled = false
-    api
-      .bikePathsMeta()
-      .then((m) => {
-        if (!cancelled) setPathMeta(m)
-      })
-      .catch(() => {
+    loadBikeRoads()
+      .then((lines) => {
         if (!cancelled) {
-          setPathMeta({
-            source: 'mock',
-            configured: false,
-            layer: null,
-            note: '메타 조회 실패 — mock 사용',
-            docs_url: 'https://www.safemap.go.kr/opna/data/dataViewRenew.do?objtId=219',
-          })
+          setBikeRoads(lines)
+          setRoadError(null)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setBikeRoads([])
+          setRoadError(e instanceof Error ? e.message : String(e))
         }
       })
     return () => {
@@ -160,111 +147,61 @@ export function KakaoMap({
     }
   }, [stations, showStations, status])
 
-  const clearPathLayers = () => {
+  // 자전거도로 Polyline (원본 MapPage 렌더 로직)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || status !== 'ready' || !window.kakao?.maps) return
+
+    const maps = window.kakao.maps
     polylinesRef.current.forEach((p) => p.setMap(null))
     polylinesRef.current = []
-    groundOverlayRef.current?.setMap(null)
-    groundOverlayRef.current = null
-  }
 
-  const refreshWmsOverlay = () => {
-    const map = mapRef.current
-    if (!map || !window.kakao?.maps) return
-    if (!showBikePathsRef.current || !useWmsRef.current) return
+    if (!showBikePaths || !bikeRoads?.length) return
 
-    const b = map.getBounds()
-    const sw = b.getSouthWest()
-    const ne = b.getNorthEast()
-    const minx = sw.getLng()
-    const miny = sw.getLat()
-    const maxx = ne.getLng()
-    const maxy = ne.getLat()
+    // 대량 라인: 한 프레임에 너무 많이 그리면 멈출 수 있어 배치 처리
+    let i = 0
+    const batch = 200
+    let cancelled = false
+    let raf = 0
 
-    const url = api.bikePathsWmsUrl({
-      minx,
-      miny,
-      maxx,
-      maxy,
-      width: 768,
-      height: 768,
-    })
-
-    const reqId = ++wmsReqIdRef.current
-    const img = new Image()
-    img.onload = () => {
-      if (reqId !== wmsReqIdRef.current) return
-      if (!mapRef.current || !showBikePathsRef.current || !useWmsRef.current) return
-
-      groundOverlayRef.current?.setMap(null)
-      const lb = new window.kakao.maps.LatLngBounds()
-      lb.extend(new window.kakao.maps.LatLng(miny, minx))
-      lb.extend(new window.kakao.maps.LatLng(maxy, maxx))
-
-      const overlay = new window.kakao.maps.GroundOverlay(url, lb, { opacity: 0.85 })
-      overlay.setMap(mapRef.current)
-      groundOverlayRef.current = overlay
-      setWmsError(null)
-    }
-    img.onerror = () => {
-      if (reqId !== wmsReqIdRef.current) return
-      setWmsError('자전거길 WMS 로드 실패 — 키·사용신청·네트워크 확인')
-    }
-    img.src = url
-  }
-
-  // idle listener once (uses refs for toggle/mode)
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || status !== 'ready' || !window.kakao?.maps) return
-
-    const onIdle = () => {
-      if (!showBikePathsRef.current || !useWmsRef.current) return
-      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current)
-      idleTimerRef.current = window.setTimeout(refreshWmsOverlay, 280)
+    const drawBatch = () => {
+      if (cancelled || !mapRef.current) return
+      const end = Math.min(i + batch, bikeRoads.length)
+      for (; i < end; i++) {
+        const { path, type } = bikeRoads[i]
+        const pathLatLng = path.map((p) => new maps.LatLng(p.lat, p.lng))
+        const line = new maps.Polyline({
+          map: mapRef.current,
+          path: pathLatLng,
+          strokeWeight: 4,
+          strokeColor: courseTypeColor(type),
+          strokeOpacity: 0.45,
+          strokeStyle: 'solid',
+        })
+        polylinesRef.current.push(line)
+      }
+      if (i < bikeRoads.length) {
+        raf = requestAnimationFrame(drawBatch)
+      }
     }
 
-    window.kakao.maps.event.addListener(map, 'idle', onIdle)
-  }, [status])
+    drawBatch()
 
-  // 자전거 도로 토글 / meta / mock data
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || status !== 'ready' || !window.kakao?.maps) return
-
-    clearPathLayers()
-    setWmsError(null)
-
-    if (!showBikePaths) return
-
-    if (pathMeta?.configured) {
-      refreshWmsOverlay()
-      return
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      polylinesRef.current.forEach((p) => p.setMap(null))
+      polylinesRef.current = []
     }
+  }, [showBikePaths, bikeRoads, status])
 
-    // mock 폴리라인 폴백
-    const maps = window.kakao.maps
-    bikePaths.forEach((path) => {
-      const pathLatLng = path.coordinates.map(
-        ([lng, lat]) => new maps.LatLng(lat, lng),
-      )
-      const line = new maps.Polyline({
-        map,
-        path: pathLatLng,
-        strokeWeight: 5,
-        strokeColor: MOCK_PATH_COLOR,
-        strokeOpacity: 0.9,
-        strokeStyle: 'solid',
-      })
-      polylinesRef.current.push(line)
-    })
-  }, [showBikePaths, pathMeta?.configured, bikePaths, status])
-
+  const roadCount = bikeRoads?.length ?? 0
   const layerHint = [
     showStations ? `대여소 ${stations.length}` : null,
     showBikePaths
-      ? pathMeta?.configured
-        ? '도로(생활안전지도 WMS)'
-        : `도로 mock ${bikePaths.length}`
+      ? bikeRoads
+        ? `도로 GeoJSON ${roadCount}구간`
+        : '도로 로딩…'
       : null,
   ]
     .filter(Boolean)
@@ -288,14 +225,18 @@ export function KakaoMap({
       )}
 
       {status === 'ready' && (
-        <div className="pointer-events-none absolute bottom-3 left-3 max-w-[72%] rounded-lg bg-white/90 px-2 py-1 text-[11px] text-slate-600 shadow">
+        <div className="pointer-events-none absolute bottom-3 left-3 max-w-[75%] rounded-lg bg-white/90 px-2 py-1 text-[11px] text-slate-600 shadow">
           <div>{layerHint || '레이어 꺼짐'}</div>
-          {showBikePaths && pathMeta && !pathMeta.configured && (
-            <div className="mt-0.5 text-[10px] text-amber-700">
-              SAFEMAP 키 없음 → mock. 키 발급 후 backend/.env 에 SAFEMAP_SERVICE_KEY
+          {showBikePaths && (
+            <div className="mt-0.5 flex flex-wrap gap-2 text-[10px]">
+              <span className="text-emerald-600">● 하천/공원형</span>
+              <span className="text-red-500">● 도로변형</span>
+              <span className="text-slate-400">● 기타</span>
             </div>
           )}
-          {wmsError && <div className="mt-0.5 text-[10px] text-red-600">{wmsError}</div>}
+          {roadError && (
+            <div className="mt-0.5 text-[10px] text-red-600">도로 데이터: {roadError}</div>
+          )}
         </div>
       )}
     </div>
