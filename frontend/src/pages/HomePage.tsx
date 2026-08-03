@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useUiStore, type MapMode } from '../store/uiStore'
 import { BottomNav } from '../components/BottomNav'
+import { KakaoMap } from '../components/KakaoMap'
 
 const modes: { id: MapMode; label: string }[] = [
   { id: 'personal', label: '개인' },
@@ -20,7 +21,6 @@ export function HomePage() {
 
   return (
     <div className="relative min-h-full bg-slate-100 pb-16">
-      {/* Top mode tabs */}
       <div className="absolute left-0 right-0 top-0 z-20 flex justify-center gap-1 p-3">
         <div className="flex rounded-full bg-white/95 p-1 shadow">
           {modes.map((m) => (
@@ -39,25 +39,19 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Map placeholder — Kakao Maps SDK next */}
-      <div className="flex h-[58vh] min-h-[320px] flex-col items-center justify-center bg-gradient-to-b from-sky-100 to-emerald-50">
-        <p className="text-sm font-medium text-slate-600">지도 영역 (Kakao Maps 연동 예정)</p>
-        <p className="mt-1 text-xs text-slate-400">
-          모드: {modes.find((m) => m.id === mapMode)?.label}
-          {stationsQ.data ? ` · 대여소 ${stationsQ.data.length}곳` : ''}
-          {pathsQ.data ? ` · 도로 ${pathsQ.data.length}개` : ''}
-        </p>
-        {(stationsQ.isLoading || pathsQ.isLoading) && (
-          <p className="mt-3 text-sm text-blue-600">지도를 불러오는 중… (API)</p>
-        )}
-        {stationsQ.isError && (
-          <p className="mt-3 max-w-xs text-center text-sm text-red-500">
-            API 연결 실패. backend를 실행했는지 확인하세요.
-          </p>
-        )}
-      </div>
+      <KakaoMap
+        mode={mapMode}
+        stations={stationsQ.data}
+        bikePaths={pathsQ.data}
+        className="h-[58vh] min-h-[320px] w-full"
+      />
 
-      {/* Bottom sheet */}
+      {stationsQ.isError && (
+        <div className="absolute left-3 right-3 top-16 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
+          API 연결 실패 — backend를 실행하면 대여소·날씨·코스가 표시됩니다.
+        </div>
+      )}
+
       <div
         className={[
           'relative z-10 -mt-4 rounded-t-3xl bg-white shadow-xl transition-all',
@@ -81,7 +75,9 @@ export function HomePage() {
                   <p className="text-3xl font-bold text-blue-700">{weatherQ.data.score}</p>
                 </div>
                 <div className="text-right text-sm text-slate-600">
-                  <p>{weatherQ.data.temp_c}°C · 체감 {weatherQ.data.feels_like_c}°C</p>
+                  <p>
+                    {weatherQ.data.temp_c}°C · 체감 {weatherQ.data.feels_like_c}°C
+                  </p>
                   <p>미세먼지 {weatherQ.data.pm10_label}</p>
                 </div>
               </div>
