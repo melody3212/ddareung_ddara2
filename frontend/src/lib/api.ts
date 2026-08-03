@@ -44,18 +44,43 @@ export type Course = {
   path: number[][] | null
 }
 
+export type HourlyWeather = {
+  time: string
+  hour: number
+  temp_c: number
+  feels_like_c: number
+  precip_prob: number
+  weather_code: number
+  condition: string
+  icon: string
+  wind_ms: number
+  humidity: number
+}
+
 export type Weather = {
   lat: number
   lng: number
+  location_name: string
   temp_c: number
   feels_like_c: number
   precip_prob: number
   humidity: number
   wind_ms: number
+  weather_code: number
+  condition: string
+  icon: string
+  pm10: number | null
+  pm25: number | null
+  dust: number | null
   pm10_grade: number
+  pm25_grade: number
+  dust_grade: number
   pm10_label: string
+  pm25_label: string
+  dust_label: string
   score: number
   message: string
+  hourly: HourlyWeather[]
   source: string
 }
 
@@ -91,7 +116,6 @@ export const api = {
   },
   bikePaths: () => request<BikePath[]>('/bike-paths'),
   bikePathsMeta: () => request<BikePathMeta>('/bike-paths/meta'),
-  /** Safemap WMS 프록시 PNG URL (현재 지도 bbox용) */
   bikePathsWmsUrl: (bbox: {
     minx: number
     miny: number
@@ -107,9 +131,8 @@ export const api = {
       maxy: String(bbox.maxy),
       width: String(bbox.width ?? 768),
       height: String(bbox.height ?? 768),
+      _: String(Date.now()),
     })
-    // cache-bust so pan/zoom always refreshes
-    q.set('_', String(Date.now()))
     return `${BASE}/bike-paths/wms?${q.toString()}`
   },
 }

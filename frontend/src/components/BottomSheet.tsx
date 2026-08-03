@@ -3,9 +3,9 @@ import { useUiStore, type SheetSnap } from '../store/uiStore'
 
 /** snap → 시트 높이 (하단 네비 위에 얹힘) */
 const SNAP_H: Record<SheetSnap, string> = {
-  collapsed: '72px',
-  half: '42vh',
-  full: '78vh',
+  collapsed: '88px',
+  half: '52vh',
+  full: '82vh',
 }
 
 type Props = {

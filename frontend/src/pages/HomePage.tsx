@@ -6,6 +6,7 @@ import { BottomNav } from '../components/BottomNav'
 import { BottomSheet } from '../components/BottomSheet'
 import { KakaoMap } from '../components/KakaoMap'
 import { MapButtons } from '../components/MapButtons'
+import { WeatherPanel } from '../components/WeatherPanel'
 
 export function HomePage() {
   const { showStations, showBikePaths, sheetSnap } = useUiStore()
@@ -16,7 +17,11 @@ export function HomePage() {
     queryFn: api.stations,
     staleTime: 60_000,
   })
-  const weatherQ = useQuery({ queryKey: ['weather'], queryFn: () => api.weather() })
+  const weatherQ = useQuery({
+    queryKey: ['weather'],
+    queryFn: () => api.weather(),
+    staleTime: 5 * 60_000,
+  })
   const coursesQ = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() })
   const stationsMetaQ = useQuery({
     queryKey: ['stations-meta'],
@@ -50,37 +55,22 @@ export function HomePage() {
         </div>
       )}
 
-      {/* 하단 플로팅 시트 (드래그 스냅) */}
+      {/* 하단 플로팅 시트 (드래그 스냅) — 날씨·라이딩 점수 확장 */}
       <BottomSheet>
+        {weatherQ.isLoading && (
+          <p className="py-2 text-center text-sm text-slate-500">날씨 불러오는 중…</p>
+        )}
+        {weatherQ.isError && (
+          <p className="py-2 text-center text-sm text-red-500">
+            날씨 API 실패 — 백엔드 실행 여부를 확인하세요.
+          </p>
+        )}
         {weatherQ.data && (
-          <div
-            className={[
-              'mb-3 rounded-2xl bg-blue-50 p-3',
-              sheetSnap === 'collapsed' ? 'py-2' : '',
-            ].join(' ')}
-          >
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-xs font-medium text-blue-600">라이딩 점수</p>
-                <p className="text-2xl font-bold text-blue-700">{weatherQ.data.score}</p>
-              </div>
-              {sheetSnap !== 'collapsed' && (
-                <div className="text-right text-sm text-slate-600">
-                  <p>
-                    {weatherQ.data.temp_c}°C · 체감 {weatherQ.data.feels_like_c}°C
-                  </p>
-                  <p>미세먼지 {weatherQ.data.pm10_label}</p>
-                </div>
-              )}
-            </div>
-            {sheetSnap !== 'collapsed' && (
-              <p className="mt-1 text-sm text-slate-700">{weatherQ.data.message}</p>
-            )}
-          </div>
+          <WeatherPanel weather={weatherQ.data} compact={sheetSnap === 'collapsed'} />
         )}
 
-        {sheetSnap !== 'collapsed' && (
-          <>
+        {sheetSnap === 'full' && (
+          <div className="mt-4">
             <h2 className="mb-2 text-base font-bold text-slate-800">추천 여가 코스</h2>
             <ul className="space-y-2 pb-2">
               {(coursesQ.data ?? []).map((c) => (
@@ -103,7 +93,7 @@ export function HomePage() {
                 </li>
               ))}
             </ul>
-          </>
+          </div>
         )}
       </BottomSheet>
 
