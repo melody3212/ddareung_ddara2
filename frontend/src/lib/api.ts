@@ -18,6 +18,18 @@ export type Station = {
   lat: number
   lng: number
   bike_count: number | null
+  rack_tot_cnt?: number | null
+  shared?: number | null
+}
+
+export type StationsMeta = {
+  source: string
+  count: number
+  configured: boolean
+  cache_ttl_sec: number
+  note: string
+  docs_url: string
+  api_example: string
 }
 
 export type Course = {
@@ -66,6 +78,7 @@ export type BikePathMeta = {
 export const api = {
   health: () => request<{ status: string; app: string }>('/health'),
   stations: () => request<Station[]>('/stations'),
+  stationsMeta: () => request<StationsMeta>('/stations/meta'),
   courses: (difficulty?: string) =>
     request<Course[]>(difficulty ? `/courses?difficulty=${difficulty}` : '/courses'),
   course: (id: number) => request<Course>(`/courses/${id}`),

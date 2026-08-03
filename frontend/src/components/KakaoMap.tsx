@@ -135,14 +135,17 @@ export function KakaoMap({
         title: s.name,
       })
       maps.event.addListener(marker, 'click', () => {
-        const count =
-          s.bike_count != null ? `잔여 ${s.bike_count}대` : '잔여 정보 없음'
+        const lines = [
+          s.bike_count != null ? `대여가능 ${s.bike_count}대` : null,
+          s.rack_tot_cnt != null ? `거치대 ${s.rack_tot_cnt}` : null,
+          s.shared != null ? `거치율 ${s.shared}%` : null,
+        ].filter(Boolean)
         const iw = infoRef.current
         if (iw) {
           iw.setContent(
-            `<div style="padding:8px 10px;font-size:12px;min-width:120px;line-height:1.4;">
+            `<div style="padding:8px 10px;font-size:12px;min-width:140px;line-height:1.4;">
               <strong>${escapeHtml(s.name)}</strong><br/>
-              <span style="color:#64748b">${escapeHtml(count)}</span>
+              <span style="color:#64748b">${escapeHtml(lines.join(' · ') || '정보 없음')}</span>
             </div>`,
           )
           iw.open(map, marker)
