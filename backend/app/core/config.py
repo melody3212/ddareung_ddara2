@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jwt_secret: str | None = None
     kakao_rest_key: str | None = None
     seoul_openapi_key: str | None = None
+    # 원본 VITE_BIKE_API_KEY 별칭 지원
+    bike_api_key: str | None = None
     weather_api_key: str | None = None
     air_api_key: str | None = None
     redis_url: str | None = None

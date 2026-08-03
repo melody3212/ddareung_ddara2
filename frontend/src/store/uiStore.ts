@@ -1,25 +1,33 @@
 import { create } from 'zustand'
 
+export type SheetSnap = 'collapsed' | 'half' | 'full'
+
 type UiState = {
-  /** 따릉이 대여소 레이어 */
   showStations: boolean
   setShowStations: (on: boolean) => void
   toggleStations: () => void
-  /** 자전거 도로 레이어 */
   showBikePaths: boolean
   setShowBikePaths: (on: boolean) => void
   toggleBikePaths: () => void
-  bottomSheetOpen: boolean
-  setBottomSheetOpen: (open: boolean) => void
+  sheetSnap: SheetSnap
+  setSheetSnap: (snap: SheetSnap) => void
+  cycleSheetSnap: () => void
 }
 
-export const useUiStore = create<UiState>((set) => ({
+const SNAP_ORDER: SheetSnap[] = ['collapsed', 'half', 'full']
+
+export const useUiStore = create<UiState>((set, get) => ({
   showStations: true,
   setShowStations: (showStations) => set({ showStations }),
   toggleStations: () => set((s) => ({ showStations: !s.showStations })),
   showBikePaths: true,
   setShowBikePaths: (showBikePaths) => set({ showBikePaths }),
   toggleBikePaths: () => set((s) => ({ showBikePaths: !s.showBikePaths })),
-  bottomSheetOpen: true,
-  setBottomSheetOpen: (bottomSheetOpen) => set({ bottomSheetOpen }),
+  sheetSnap: 'half',
+  setSheetSnap: (sheetSnap) => set({ sheetSnap }),
+  cycleSheetSnap: () => {
+    const cur = get().sheetSnap
+    const i = SNAP_ORDER.indexOf(cur)
+    set({ sheetSnap: SNAP_ORDER[(i + 1) % SNAP_ORDER.length] })
+  },
 }))

@@ -42,7 +42,7 @@ MOCK_STATIONS: list[Station] = [
 @router.get("/meta", response_model=StationsMeta)
 async def stations_meta():
     settings = get_settings()
-    key = (settings.seoul_openapi_key or "").strip()
+    key = (settings.seoul_openapi_key or settings.bike_api_key or "").strip()
     configured = bool(key)
     stations, source, err = await fetch_bike_stations(key)
     if not stations:
@@ -73,7 +73,7 @@ async def stations_meta():
 @router.get("", response_model=list[Station])
 async def list_stations():
     settings = get_settings()
-    key = (settings.seoul_openapi_key or "").strip()
+    key = (settings.seoul_openapi_key or settings.bike_api_key or "").strip()
     stations, _source, _err = await fetch_bike_stations(key)
     if stations:
         return stations

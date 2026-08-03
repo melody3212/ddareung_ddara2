@@ -2,7 +2,7 @@ import { BottomNav } from '../components/BottomNav'
 
 export function PlaceholderPage({ title, note }: { title: string; note?: string }) {
   return (
-    <div className="flex min-h-full flex-col bg-white pb-16">
+    <div className="flex min-h-[100dvh] flex-col bg-white pb-16">
       <header className="border-b border-slate-100 px-4 py-4">
         <h1 className="text-lg font-bold text-slate-900">{title}</h1>
       </header>

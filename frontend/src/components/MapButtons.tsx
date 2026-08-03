@@ -1,14 +1,10 @@
 /**
- * 원본: https://github.com/melody3212/ddareung-ddara
- * MapButtons — 우측 세로: 자전거도로 / 따릉이 / 내 위치
+ * 원본 MapButtons — 우측: 도로 / 대여소
+ * 내 위치는 우측 하단 별도 버튼 (요구사항)
  */
 import { useUiStore } from '../store/uiStore'
 
-type Props = {
-  onMyLocation: () => void
-}
-
-export function MapButtons({ onMyLocation }: Props) {
+export function MapButtons() {
   const {
     showStations,
     toggleStations,
@@ -18,15 +14,15 @@ export function MapButtons({ onMyLocation }: Props) {
 
   return (
     <div
-      className="absolute right-4 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2.5"
+      className="absolute right-3 top-[28%] z-20 flex -translate-y-1/2 flex-col gap-2.5"
       role="group"
-      aria-label="지도 제어"
+      aria-label="지도 레이어"
     >
       <CircleToggle
         label="자전거 도로"
         active={showBikePaths}
         onClick={toggleBikePaths}
-        activeClass="bg-emerald-500 text-white border-emerald-500"
+        activeClass="bg-[#35d357] text-white border-[#35d357]"
       >
         🛤
       </CircleToggle>
@@ -35,21 +31,26 @@ export function MapButtons({ onMyLocation }: Props) {
         label="따릉이 대여소"
         active={showStations}
         onClick={toggleStations}
-        activeClass="bg-emerald-500 text-white border-emerald-500"
+        activeClass="bg-[#35d357] text-white border-[#35d357]"
       >
         🚲
       </CircleToggle>
-
-      <button
-        type="button"
-        onClick={onMyLocation}
-        title="내 위치"
-        aria-label="내 위치로 이동"
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-lg shadow-md hover:bg-slate-50"
-      >
-        ◎
-      </button>
     </div>
+  )
+}
+
+/** 우측 하단 — 현재 내 위치로 지도 이동 */
+export function MyLocationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="현재 내 위치"
+      aria-label="현재 내 위치로 지도 이동"
+      className="absolute bottom-[calc(3.5rem+12px)] right-3 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-xl shadow-lg hover:bg-slate-50 active:scale-95"
+    >
+      ◎
+    </button>
   )
 }
 
