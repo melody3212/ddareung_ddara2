@@ -1,18 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { useUiStore, type MapMode } from '../store/uiStore'
+import { useUiStore } from '../store/uiStore'
 import { BottomNav } from '../components/BottomNav'
 import { KakaoMap } from '../components/KakaoMap'
-
-const modes: { id: MapMode; label: string }[] = [
-  { id: 'personal', label: '개인' },
-  { id: 'ddareung', label: '따릉이' },
-  { id: 'road', label: '도로' },
-  { id: 'route', label: '길찾기' },
-]
+import { MapLayerToggles } from '../components/MapLayerToggles'
 
 export function HomePage() {
-  const { mapMode, setMapMode, bottomSheetOpen, setBottomSheetOpen } = useUiStore()
+  const {
+    showStations,
+    showBikePaths,
+    bottomSheetOpen,
+    setBottomSheetOpen,
+  } = useUiStore()
 
   const stationsQ = useQuery({ queryKey: ['stations'], queryFn: api.stations })
   const weatherQ = useQuery({ queryKey: ['weather'], queryFn: () => api.weather() })
@@ -21,33 +20,19 @@ export function HomePage() {
 
   return (
     <div className="relative min-h-full bg-slate-100 pb-16">
-      <div className="absolute left-0 right-0 top-0 z-20 flex justify-center gap-1 p-3">
-        <div className="flex rounded-full bg-white/95 p-1 shadow">
-          {modes.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setMapMode(m.id)}
-              className={[
-                'rounded-full px-3 py-1.5 text-sm font-medium',
-                mapMode === m.id ? 'bg-blue-500 text-white' : 'text-slate-600',
-              ].join(' ')}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* 우측 상단 세로 토글 */}
+      <MapLayerToggles />
 
       <KakaoMap
-        mode={mapMode}
+        showStations={showStations}
+        showBikePaths={showBikePaths}
         stations={stationsQ.data}
         bikePaths={pathsQ.data}
         className="h-[58vh] min-h-[320px] w-full"
       />
 
       {stationsQ.isError && (
-        <div className="absolute left-3 right-3 top-16 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
+        <div className="absolute left-3 right-20 top-3 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
           API 연결 실패 — backend를 실행하면 대여소·날씨·코스가 표시됩니다.
         </div>
       )}
