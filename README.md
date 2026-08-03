@@ -123,7 +123,9 @@ copy backend\.env.example backend\.env
 
 ## 저장소
 
-https://github.com/melody3212/ddareung_ddara2
+- 현재 작업: https://github.com/melody3212/ddareung_ddara2  
+- **원본 참고**: https://github.com/melody3212/ddareung-ddara  
+  (MapPage GeoJSON 도로, MapButtons, rentBikeStatus 페이징, MarkerClusterer)
 
 ## 라이선스
 

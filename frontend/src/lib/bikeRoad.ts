@@ -1,6 +1,6 @@
 /**
- * 원본 프로젝트(ddareung-ddara) MapPage.jsx 의 자전거도로 분류·파싱 로직 이식
- * 데이터: public/data/bikeload.geojson (VALUE_03)
+ * 원본: https://github.com/melody3212/ddareung-ddara
+ * MapPage.jsx 자전거도로 분류·파싱 (VALUE_03 + bikeload.geojson)
  */
 
 export type CourseType = '하천/공원형' | '도로변형' | '기타'
@@ -30,11 +30,11 @@ export function getCourseType(raw?: string | null): CourseType {
   return '기타'
 }
 
+/** GitHub 원본 MapPage 색상: 하천/공원 green, 도로변형 gray, 기타 red */
 export function courseTypeColor(type: CourseType): string {
-  // 원본: green / gray / red  → 요청 반영: 도로변형 빨간색
-  if (type === '하천/공원형') return '#22c55e'
-  if (type === '도로변형') return '#ef4444'
-  return '#94a3b8'
+  if (type === '하천/공원형') return 'green'
+  if (type === '도로변형') return 'gray'
+  return 'red'
 }
 
 type GeoJsonLike = {

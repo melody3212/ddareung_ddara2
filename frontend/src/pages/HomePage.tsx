@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useUiStore } from '../store/uiStore'
 import { BottomNav } from '../components/BottomNav'
 import { KakaoMap } from '../components/KakaoMap'
-import { MapLayerToggles } from '../components/MapLayerToggles'
+import { MapButtons } from '../components/MapButtons'
 
 export function HomePage() {
   const {
@@ -13,24 +14,27 @@ export function HomePage() {
     setBottomSheetOpen,
   } = useUiStore()
 
+  const [locationRequestId, setLocationRequestId] = useState(0)
+
   const stationsQ = useQuery({ queryKey: ['stations'], queryFn: api.stations })
   const weatherQ = useQuery({ queryKey: ['weather'], queryFn: () => api.weather() })
   const coursesQ = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() })
 
   return (
     <div className="relative min-h-full bg-slate-100 pb-16">
-      {/* 우측 상단 세로 토글 (대여소 / 자전거도로) */}
-      <MapLayerToggles />
+      {/* 원본 MapButtons: 우측 세로 도로 / 대여소 / 내 위치 */}
+      <MapButtons onMyLocation={() => setLocationRequestId((n) => n + 1)} />
 
       <KakaoMap
         showStations={showStations}
         showBikePaths={showBikePaths}
         stations={stationsQ.data}
+        locationRequestId={locationRequestId}
         className="h-[58vh] min-h-[320px] w-full"
       />
 
       {stationsQ.isError && (
-        <div className="absolute left-3 right-20 top-3 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
+        <div className="absolute left-3 right-16 top-3 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
           API 연결 실패 — backend를 실행하면 대여소·날씨·코스가 표시됩니다.
         </div>
       )}
