@@ -9,16 +9,44 @@ backend/venv/
 **/.mypy_cache/
 **/.ruff_cache/
 
-# Env & secrets
+# ── Env & secrets (never commit) ───────────────────────────
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Explicit app envs
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
 backend/.env
 backend/.env.*
 !backend/.env.example
+
+# Common secret / credential filenames
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*credentials*
+!*credentials*.example
+secrets/
+.secrets/
+config/local.*
+**/local.settings.json
+**/serviceAccount*.json
+**/firebase*.json
+!**/firebase*.example.json
+
+# API key dumps / local overrides
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Build / dist
 frontend/dist/

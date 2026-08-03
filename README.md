@@ -62,11 +62,21 @@ uvicorn app.main:app --reload --port 8000
 
 API 문서: http://localhost:8000/docs
 
-## 환경 변수
+## 환경 변수 · 시크릿
 
-- **Web:** `VITE_API_BASE_URL`, `VITE_KAKAO_JS_KEY`
-- **API:** `DATABASE_URL`, `CORS_ORIGINS`, `KAKAO_REST_KEY`, `SEOUL_OPENAPI_KEY`, …  
-  → `backend/.env.example` 참고
+**API 키·시크릿은 Git에 올리지 않습니다.** `.env` 는 `.gitignore` 대상입니다.
+
+```bash
+cp frontend/.env.example frontend/.env   # VITE_KAKAO_JS_KEY 등 입력
+cp backend/.env.example backend/.env     # REST/공공 API 키 등 입력
+```
+
+| 위치 | 변수 예시 |
+|------|-----------|
+| Web | `VITE_API_BASE_URL`, `VITE_KAKAO_JS_KEY` |
+| API | `DATABASE_URL`, `CORS_ORIGINS`, `KAKAO_REST_KEY`, `SEOUL_OPENAPI_KEY`, `JWT_SECRET` … |
+
+커밋 전 확인: `git status` 에 `.env` 가 보이면 안 됩니다.
 
 ## 라이선스
 
