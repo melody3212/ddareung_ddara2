@@ -26,14 +26,17 @@ declare namespace kakao {
     class Map {
       constructor(container: HTMLElement, options: object)
       setCenter(latlng: LatLng): void
-      setLevel(level: number): void
+      setLevel(level: number, options?: object): void
+      getLevel(): number
       setBounds(bounds: LatLngBounds, padding?: number): void
       getBounds(): LatLngBounds
+      getCenter(): LatLng
       relayout(): void
     }
     class Marker {
       constructor(options: object)
       setMap(map: Map | null): void
+      getPosition(): LatLng
     }
     class InfoWindow {
       constructor(options: object)
@@ -61,6 +64,12 @@ declare namespace kakao {
     }
     class MarkerImage {
       constructor(src: string, size: Size, options?: object)
+    }
+    class MarkerClusterer {
+      constructor(options: object)
+      addMarkers(markers: Marker[]): void
+      clear(): void
+      setMap(map: Map | null): void
     }
     function load(callback: () => void): void
     namespace event {

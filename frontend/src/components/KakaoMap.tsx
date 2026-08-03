@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import markerImgUrl from '../assets/images/ddareungMarker.png'
 import { loadKakaoMaps } from '../lib/loadKakaoMap'
 import type { Station } from '../lib/api'
 import {
@@ -6,6 +7,7 @@ import {
   loadBikeRoads,
   type BikeRoadLine,
 } from '../lib/bikeRoad'
+import { formatDistance, getDistanceMeters } from '../lib/geo'
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 
@@ -24,17 +26,22 @@ export function KakaoMap({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<kakao.maps.Map | null>(null)
+  const clustererRef = useRef<kakao.maps.MarkerClusterer | null>(null)
   const markersRef = useRef<kakao.maps.Marker[]>([])
   const polylinesRef = useRef<kakao.maps.Polyline[]>([])
+  const highlightRef = useRef<kakao.maps.Polyline | null>(null)
   const infoRef = useRef<kakao.maps.InfoWindow | null>(null)
+  const markerImageRef = useRef<kakao.maps.MarkerImage | null>(null)
   const didFitStationsRef = useRef(false)
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [bikeRoads, setBikeRoads] = useState<BikeRoadLine[] | null>(null)
   const [roadError, setRoadError] = useState<string | null>(null)
+  const [zoomLevel, setZoomLevel] = useState(7)
+  const [nearestHint, setNearestHint] = useState<string | null>(null)
 
-  // Init map
+  // Init map + clusterer
   useEffect(() => {
     let cancelled = false
 
@@ -50,7 +57,30 @@ export function KakaoMap({
           level: 7,
         })
         mapRef.current = map
-        infoRef.current = new maps.InfoWindow({ zIndex: 2 })
+        infoRef.current = new maps.InfoWindow({ zIndex: 3 })
+
+        // 원본 offset 12,12 / size 25x20
+        markerImageRef.current = new maps.MarkerImage(
+          markerImgUrl,
+          new maps.Size(25, 20),
+          { offset: new maps.Point(12, 12) },
+        )
+
+        // MarkerClusterer (libraries=clusterer)
+        if (typeof maps.MarkerClusterer === 'function') {
+          clustererRef.current = new maps.MarkerClusterer({
+            map,
+            averageCenter: true,
+            minLevel: 6,
+            gridSize: 60,
+          })
+        }
+
+        maps.event.addListener(map, 'zoom_changed', () => {
+          setZoomLevel(map.getLevel())
+        })
+        setZoomLevel(map.getLevel())
+
         setStatus('ready')
         requestAnimationFrame(() => map.relayout())
         setTimeout(() => map.relayout(), 200)
@@ -64,15 +94,16 @@ export function KakaoMap({
     void init()
     return () => {
       cancelled = true
-      markersRef.current.forEach((m) => m.setMap(null))
-      polylinesRef.current.forEach((p) => p.setMap(null))
-      markersRef.current = []
-      polylinesRef.current = []
+      clearStations()
+      clearRoads()
+      highlightRef.current?.setMap(null)
+      clustererRef.current?.setMap(null)
       mapRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // GeoJSON 자전거도로 (원본과 동일 경로)
+  // GeoJSON 자전거도로
   useEffect(() => {
     let cancelled = false
     loadBikeRoads()
@@ -100,29 +131,43 @@ export function KakaoMap({
     return () => window.clearTimeout(t)
   }, [status, className])
 
-  // 따릉이 대여소
+  function clearStations() {
+    if (clustererRef.current) {
+      clustererRef.current.clear()
+    }
+    markersRef.current.forEach((m) => m.setMap(null))
+    markersRef.current = []
+    infoRef.current?.close()
+  }
+
+  function clearRoads() {
+    polylinesRef.current.forEach((p) => p.setMap(null))
+    polylinesRef.current = []
+  }
+
+  // 따릉이 대여소 + 클러스터
   useEffect(() => {
     const map = mapRef.current
     if (!map || status !== 'ready' || !window.kakao?.maps) return
 
     const maps = window.kakao.maps
-    markersRef.current.forEach((m) => m.setMap(null))
-    markersRef.current = []
-    infoRef.current?.close()
+    clearStations()
 
     if (!showStations || stations.length === 0) return
 
     const bounds = new maps.LatLngBounds()
+    const markers: kakao.maps.Marker[] = []
+
     stations.forEach((s) => {
       const pos = new maps.LatLng(s.lat, s.lng)
       bounds.extend(pos)
       const marker = new maps.Marker({
-        map,
         position: pos,
         title: s.name,
+        image: markerImageRef.current ?? undefined,
       })
       maps.event.addListener(marker, 'click', () => {
-        const lines = [
+        const detail = [
           s.bike_count != null ? `대여가능 ${s.bike_count}대` : null,
           s.rack_tot_cnt != null ? `거치대 ${s.rack_tot_cnt}` : null,
           s.shared != null ? `거치율 ${s.shared}%` : null,
@@ -132,14 +177,22 @@ export function KakaoMap({
           iw.setContent(
             `<div style="padding:8px 10px;font-size:12px;min-width:140px;line-height:1.4;">
               <strong>${escapeHtml(s.name)}</strong><br/>
-              <span style="color:#64748b">${escapeHtml(lines.join(' · ') || '정보 없음')}</span>
+              <span style="color:#64748b">${escapeHtml(detail.join(' · ') || '정보 없음')}</span>
             </div>`,
           )
           iw.open(map, marker)
         }
       })
-      markersRef.current.push(marker)
+      markers.push(marker)
     })
+
+    markersRef.current = markers
+
+    if (clustererRef.current) {
+      clustererRef.current.addMarkers(markers)
+    } else {
+      markers.forEach((m) => m.setMap(map))
+    }
 
     if (!didFitStationsRef.current && stations.length > 0) {
       map.setBounds(bounds, 48)
@@ -147,18 +200,16 @@ export function KakaoMap({
     }
   }, [stations, showStations, status])
 
-  // 자전거도로 Polyline (원본 MapPage 렌더 로직)
+  // 자전거도로 Polyline
   useEffect(() => {
     const map = mapRef.current
     if (!map || status !== 'ready' || !window.kakao?.maps) return
 
     const maps = window.kakao.maps
-    polylinesRef.current.forEach((p) => p.setMap(null))
-    polylinesRef.current = []
+    clearRoads()
 
     if (!showBikePaths || !bikeRoads?.length) return
 
-    // 대량 라인: 한 프레임에 너무 많이 그리면 멈출 수 있어 배치 처리
     let i = 0
     const batch = 200
     let cancelled = false
@@ -190,19 +241,75 @@ export function KakaoMap({
     return () => {
       cancelled = true
       cancelAnimationFrame(raf)
-      polylinesRef.current.forEach((p) => p.setMap(null))
-      polylinesRef.current = []
+      clearRoads()
     }
   }, [showBikePaths, bikeRoads, status])
+
+  /** 지도 중심 기준 가장 가까운 하천/공원형 구간 하이라이트 */
+  const focusNearestParkPath = () => {
+    const map = mapRef.current
+    if (!map || !window.kakao?.maps || !bikeRoads?.length) {
+      setNearestHint('도로 데이터가 아직 없습니다.')
+      return
+    }
+
+    const center = map.getCenter()
+    const origin = { lat: center.getLat(), lng: center.getLng() }
+    const parks = bikeRoads.filter((r) => r.type === '하천/공원형')
+    if (!parks.length) {
+      setNearestHint('하천/공원형 구간을 찾지 못했습니다.')
+      return
+    }
+
+    let best: BikeRoadLine | null = null
+    let bestDist = Infinity
+    let bestPoint = origin
+
+    for (const line of parks) {
+      // 샘플 포인트로 근사 (전 점 스캔은 무거움 → 양 끝+중간)
+      const pts = [
+        line.path[0],
+        line.path[Math.floor(line.path.length / 2)],
+        line.path[line.path.length - 1],
+      ]
+      for (const p of pts) {
+        const d = getDistanceMeters(origin, p)
+        if (d < bestDist) {
+          bestDist = d
+          best = line
+          bestPoint = p
+        }
+      }
+    }
+
+    if (!best) return
+
+    const maps = window.kakao.maps
+    highlightRef.current?.setMap(null)
+    const pathLatLng = best.path.map((p) => new maps.LatLng(p.lat, p.lng))
+    highlightRef.current = new maps.Polyline({
+      map,
+      path: pathLatLng,
+      strokeWeight: 7,
+      strokeColor: '#16a34a',
+      strokeOpacity: 1,
+      strokeStyle: 'solid',
+    })
+
+    map.setCenter(new maps.LatLng(bestPoint.lat, bestPoint.lng))
+    if (map.getLevel() > 5) map.setLevel(5)
+    setNearestHint(`가장 가까운 하천/공원형 · 약 ${formatDistance(bestDist)}`)
+  }
 
   const roadCount = bikeRoads?.length ?? 0
   const layerHint = [
     showStations ? `대여소 ${stations.length}` : null,
     showBikePaths
       ? bikeRoads
-        ? `도로 GeoJSON ${roadCount}구간`
+        ? `도로 ${roadCount}구간`
         : '도로 로딩…'
       : null,
+    `줌 ${zoomLevel}`,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -210,6 +317,19 @@ export function KakaoMap({
   return (
     <div className={['relative overflow-hidden bg-slate-200', className].filter(Boolean).join(' ')}>
       <div ref={containerRef} className="h-full w-full" />
+
+      {/* 좌측 하단: 최근접 하천/공원형 */}
+      {status === 'ready' && (
+        <div className="absolute bottom-12 left-3 z-20">
+          <button
+            type="button"
+            onClick={focusNearestParkPath}
+            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-md hover:bg-emerald-700"
+          >
+            가까운 하천/공원형
+          </button>
+        </div>
+      )}
 
       {status === 'loading' && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/60">
@@ -234,8 +354,11 @@ export function KakaoMap({
               <span className="text-slate-400">● 기타</span>
             </div>
           )}
+          {nearestHint && (
+            <div className="mt-0.5 text-[10px] font-medium text-emerald-700">{nearestHint}</div>
+          )}
           {roadError && (
-            <div className="mt-0.5 text-[10px] text-red-600">도로 데이터: {roadError}</div>
+            <div className="mt-0.5 text-[10px] text-red-600">도로: {roadError}</div>
           )}
         </div>
       )}
