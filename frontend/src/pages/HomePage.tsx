@@ -5,7 +5,7 @@ import { useUiStore } from '../store/uiStore'
 import { BottomNav } from '../components/BottomNav'
 import { BottomSheet } from '../components/BottomSheet'
 import { KakaoMap } from '../components/KakaoMap'
-import { MapButtons, MyLocationButton } from '../components/MapButtons'
+import { MapButtons } from '../components/MapButtons'
 
 export function HomePage() {
   const { showStations, showBikePaths, sheetSnap } = useUiStore()
@@ -35,11 +35,8 @@ export function HomePage() {
         className="absolute inset-0 h-full w-full"
       />
 
-      {/* 우측: 도로 / 대여소 */}
-      <MapButtons />
-
-      {/* 우측 하단: 내 위치 */}
-      <MyLocationButton onClick={() => setLocationRequestId((n) => n + 1)} />
+      {/* 우측: 도로 / 대여소 / 내 위치 */}
+      <MapButtons onMyLocation={() => setLocationRequestId((n) => n + 1)} />
 
       {stationsQ.isError && (
         <div className="absolute left-3 right-14 top-3 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
