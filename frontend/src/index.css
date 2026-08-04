@@ -16,3 +16,12 @@ body,
 body {
   -webkit-font-smoothing: antialiased;
 }
+
+/* 스크롤바 숨김 (스크롤은 가능) */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}

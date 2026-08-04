@@ -6,11 +6,19 @@ import { BottomNav } from '../components/BottomNav'
 import { BottomSheet } from '../components/BottomSheet'
 import { KakaoMap } from '../components/KakaoMap'
 import { MapButtons } from '../components/MapButtons'
-import { WeatherPanel } from '../components/WeatherPanel'
+import {
+  CourseList,
+  RidingScoreCard,
+  WeatherCompact,
+  WeatherDetails,
+} from '../components/WeatherPanel'
+
+type SheetTab = 'weather' | 'courses'
 
 export function HomePage() {
   const { showStations, showBikePaths, sheetSnap } = useUiStore()
   const [locationRequestId, setLocationRequestId] = useState(0)
+  const [sheetTab, setSheetTab] = useState<SheetTab>('weather')
 
   const stationsQ = useQuery({
     queryKey: ['stations'],
@@ -31,7 +39,6 @@ export function HomePage() {
 
   return (
     <div className="relative h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-100">
-      {/* 지도: 전체 화면 (네비·시트 아래) */}
       <KakaoMap
         showStations={showStations}
         showBikePaths={showBikePaths}
@@ -40,7 +47,6 @@ export function HomePage() {
         className="absolute inset-0 h-full w-full"
       />
 
-      {/* 우측: 도로 / 대여소 / 내 위치 */}
       <MapButtons onMyLocation={() => setLocationRequestId((n) => n + 1)} />
 
       {stationsQ.isError && (
@@ -55,7 +61,6 @@ export function HomePage() {
         </div>
       )}
 
-      {/* 하단 플로팅 시트 (드래그 스냅) — 날씨·라이딩 점수 확장 */}
       <BottomSheet>
         {weatherQ.isLoading && (
           <p className="py-2 text-center text-sm text-slate-500">날씨 불러오는 중…</p>
@@ -65,39 +70,71 @@ export function HomePage() {
             날씨 API 실패 — 백엔드 실행 여부를 확인하세요.
           </p>
         )}
-        {weatherQ.data && (
-          <WeatherPanel weather={weatherQ.data} compact={sheetSnap === 'collapsed'} />
+
+        {/* 접힘: 요약만 */}
+        {weatherQ.data && sheetSnap === 'collapsed' && (
+          <WeatherCompact weather={weatherQ.data} />
         )}
 
-        {sheetSnap === 'full' && (
-          <div className="mt-4">
-            <h2 className="mb-2 text-base font-bold text-slate-800">추천 여가 코스</h2>
-            <ul className="space-y-2 pb-2">
-              {(coursesQ.data ?? []).map((c) => (
-                <li
-                  key={c.course_id}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-slate-800">{c.title}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {c.distance_km}km · {c.duration_min}분 · {c.difficulty}
-                      </p>
-                      <p className="mt-1 text-xs text-blue-600">{c.tags.join(' ')}</p>
-                    </div>
-                    {c.rating != null && (
-                      <span className="text-sm font-medium text-amber-600">★ {c.rating}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+        {/* 펼침: 점수 + 탭 */}
+        {weatherQ.data && sheetSnap !== 'collapsed' && (
+          <div className="space-y-3">
+            <RidingScoreCard weather={weatherQ.data} />
+
+            {/* 날씨 | 추천코스 */}
+            <div
+              className="flex rounded-xl bg-slate-100 p-1"
+              role="tablist"
+              aria-label="바텀시트 내용"
+            >
+              <TabButton
+                active={sheetTab === 'weather'}
+                onClick={() => setSheetTab('weather')}
+                label="날씨"
+              />
+              <TabButton
+                active={sheetTab === 'courses'}
+                onClick={() => setSheetTab('courses')}
+                label="추천코스"
+              />
+            </div>
+
+            {sheetTab === 'weather' && <WeatherDetails weather={weatherQ.data} />}
+            {sheetTab === 'courses' && (
+              <CourseList courses={coursesQ.data ?? []} />
+            )}
           </div>
         )}
       </BottomSheet>
 
       <BottomNav />
     </div>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={[
+        'flex-1 rounded-lg py-2 text-sm font-semibold transition',
+        active
+          ? 'bg-white text-blue-600 shadow-sm'
+          : 'text-slate-500 hover:text-slate-700',
+      ].join(' ')}
+    >
+      {label}
+    </button>
   )
 }

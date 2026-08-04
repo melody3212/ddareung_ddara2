@@ -81,7 +81,7 @@ export function BottomSheet({ children }: Props) {
 
       <div
         className={[
-          'min-h-0 flex-1 px-4 pb-3',
+          'no-scrollbar min-h-0 flex-1 px-4 pb-3',
           sheetSnap === 'collapsed' ? 'overflow-hidden' : 'overflow-y-auto',
         ].join(' ')}
       >
