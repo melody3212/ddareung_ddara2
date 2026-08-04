@@ -13,6 +13,8 @@ export function MapButtons({ onMyLocation }: Props) {
     toggleStations,
     showBikePaths,
     toggleBikePaths,
+    showSlope,
+    toggleSlope,
   } = useUiStore()
 
   return (
@@ -39,7 +41,16 @@ export function MapButtons({ onMyLocation }: Props) {
         🚲
       </CircleToggle>
 
-      {/* 자전거·대여소 토글 바로 아래 */}
+      <CircleToggle
+        label="경사도 (급경사 강조)"
+        active={showSlope}
+        onClick={toggleSlope}
+        activeClass="bg-red-500 text-white border-red-500"
+      >
+        ⛰
+      </CircleToggle>
+
+      {/* 자전거·대여소·경사 토글 바로 아래 */}
       <button
         type="button"
         onClick={onMyLocation}

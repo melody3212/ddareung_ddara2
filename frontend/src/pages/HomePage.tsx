@@ -1,47 +1,52 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
-import { useUiStore } from '../store/uiStore'
-import { BottomNav } from '../components/BottomNav'
-import { BottomSheet } from '../components/BottomSheet'
-import { KakaoMap } from '../components/KakaoMap'
-import { MapButtons } from '../components/MapButtons'
+import { CourseList, coursesApi } from '../features/courses'
+import { KakaoMap, MapButtons } from '../features/map'
+import { stationsApi } from '../features/stations'
 import {
-  CourseList,
   RidingScoreCard,
   WeatherCompact,
   WeatherDetails,
-} from '../components/WeatherPanel'
+  weatherApi,
+} from '../features/weather'
+import { useUiStore } from '../shared/store/uiStore'
+import { BottomNav } from '../shared/ui/BottomNav'
+import { BottomSheet } from '../shared/ui/BottomSheet'
 
 type SheetTab = 'weather' | 'courses'
 
 export function HomePage() {
-  const { showStations, showBikePaths, sheetSnap } = useUiStore()
+  const { showStations, showBikePaths, showSlope, sheetSnap } = useUiStore()
   const [locationRequestId, setLocationRequestId] = useState(0)
   const [sheetTab, setSheetTab] = useState<SheetTab>('weather')
 
   const stationsQ = useQuery({
     queryKey: ['stations'],
-    queryFn: api.stations,
+    queryFn: stationsApi.list,
     staleTime: 60_000,
   })
   const weatherQ = useQuery({
     queryKey: ['weather'],
-    queryFn: () => api.weather(),
+    queryFn: () => weatherApi.get(),
     staleTime: 5 * 60_000,
   })
-  const coursesQ = useQuery({ queryKey: ['courses'], queryFn: () => api.courses() })
+  const coursesQ = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => coursesApi.list(),
+  })
   const stationsMetaQ = useQuery({
     queryKey: ['stations-meta'],
-    queryFn: api.stationsMeta,
+    queryFn: stationsApi.meta,
     staleTime: 60_000,
   })
 
   return (
-    <div className="relative h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-100">
+    <div className="relative h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-slate-100">
       <KakaoMap
         showStations={showStations}
         showBikePaths={showBikePaths}
+        showSlope={showSlope}
         stations={stationsQ.data}
         locationRequestId={locationRequestId}
         className="absolute inset-0 h-full w-full"
@@ -49,15 +54,24 @@ export function HomePage() {
 
       <MapButtons onMyLocation={() => setLocationRequestId((n) => n + 1)} />
 
-      {stationsQ.isError && (
-        <div className="absolute left-3 right-14 top-3 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
-          API 연결 실패 — backend 실행 여부를 확인하세요.
-        </div>
-      )}
+      {/* 좌상단 정보 — 한 줄로 겹침 최소화 */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-5.5rem)] flex-col gap-1.5">
+        {stationsMetaQ.data && (
+          <div className="w-fit rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow">
+            대여소 {stationsMetaQ.data.count}곳 · {stationsMetaQ.data.source}
+          </div>
+        )}
+        <Link
+          to="/search-route"
+          className="pointer-events-auto w-fit rounded-full bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-md hover:bg-blue-700"
+        >
+          길찾기
+        </Link>
+      </div>
 
-      {stationsMetaQ.data && (
-        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow">
-          대여소 {stationsMetaQ.data.count}곳 · {stationsMetaQ.data.source}
+      {stationsQ.isError && (
+        <div className="absolute left-3 right-14 top-20 z-20 rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 shadow">
+          API 연결 실패 — backend 실행 여부를 확인하세요.
         </div>
       )}
 
@@ -71,17 +85,14 @@ export function HomePage() {
           </p>
         )}
 
-        {/* 접힘: 요약만 */}
         {weatherQ.data && sheetSnap === 'collapsed' && (
           <WeatherCompact weather={weatherQ.data} />
         )}
 
-        {/* 펼침: 점수 + 탭 */}
         {weatherQ.data && sheetSnap !== 'collapsed' && (
           <div className="space-y-3">
             <RidingScoreCard weather={weatherQ.data} />
 
-            {/* 날씨 | 추천코스 */}
             <div
               className="flex rounded-xl bg-slate-100 p-1"
               role="tablist"

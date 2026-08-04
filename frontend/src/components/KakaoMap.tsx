@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import markerImgUrl from '../assets/images/ddareungMarker.png'
 import { loadKakaoMaps } from '../lib/loadKakaoMap'
-import type { Station } from '../lib/api'
+import { api, type ElevationProfile, type Station } from '../lib/api'
 import {
   courseTypeColor,
   loadBikeRoads,
@@ -15,9 +15,16 @@ import { formatDistance, getDistanceMeters } from '../lib/geo'
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 
+/** 지도 중심 근처 도로만 경사 분석 (성능) */
+const SLOPE_NEAR_M = 1800
+const SLOPE_MAX_ROADS = 36
+const SLOPE_MIN_PATH_POINTS = 2
+
 type Props = {
   showStations: boolean
   showBikePaths: boolean
+  /** 급경사 구간을 붉은색 계열로 강조 */
+  showSlope?: boolean
   stations?: Station[]
   className?: string
   /** 부모에서 내 위치 요청 시 증가/변경 */
@@ -27,6 +34,7 @@ type Props = {
 export function KakaoMap({
   showStations,
   showBikePaths,
+  showSlope = false,
   stations = [],
   className,
   locationRequestId = 0,
@@ -36,12 +44,14 @@ export function KakaoMap({
   const clustererRef = useRef<kakao.maps.MarkerClusterer | null>(null)
   const markersRef = useRef<kakao.maps.Marker[]>([])
   const polylinesRef = useRef<kakao.maps.Polyline[]>([])
+  const slopeLinesRef = useRef<kakao.maps.Polyline[]>([])
   const recommendLineRef = useRef<kakao.maps.Polyline | null>(null)
   const myLocMarkerRef = useRef<kakao.maps.Marker | null>(null)
   const infoRef = useRef<kakao.maps.InfoWindow | null>(null)
   const markerImageRef = useRef<kakao.maps.MarkerImage | null>(null)
   const didFitStationsRef = useRef(false)
   const centerRef = useRef(SEOUL_CENTER)
+  const slopeCacheRef = useRef<Map<number, ElevationProfile>>(new Map())
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -49,6 +59,9 @@ export function KakaoMap({
   const [roadError, setRoadError] = useState<string | null>(null)
   const [zoomLevel, setZoomLevel] = useState(4)
   const [recommendHint, setRecommendHint] = useState<string | null>(null)
+  const [slopeHint, setSlopeHint] = useState<string | null>(null)
+  const [slopeLoading, setSlopeLoading] = useState(false)
+  const [slopeTick, setSlopeTick] = useState(0)
 
   // Init map
   useEffect(() => {
@@ -101,6 +114,12 @@ export function KakaoMap({
         maps.event.addListener(map, 'click', () => {
           infoRef.current?.close()
         })
+        // 경사 레이어: 지도 이동 후 잠시 멈출 때 재분석
+        let idleTimer: number | undefined
+        maps.event.addListener(map, 'idle', () => {
+          window.clearTimeout(idleTimer)
+          idleTimer = window.setTimeout(() => setSlopeTick((n) => n + 1), 450)
+        })
 
         setZoomLevel(map.getLevel())
         setStatus('ready')
@@ -118,6 +137,7 @@ export function KakaoMap({
       cancelled = true
       clearStations()
       clearRoads()
+      clearSlopeLines()
       recommendLineRef.current?.setMap(null)
       myLocMarkerRef.current?.setMap(null)
       clustererRef.current?.setMap(null)
@@ -197,6 +217,11 @@ export function KakaoMap({
   function clearRoads() {
     polylinesRef.current.forEach((p) => p.setMap(null))
     polylinesRef.current = []
+  }
+
+  function clearSlopeLines() {
+    slopeLinesRef.current.forEach((p) => p.setMap(null))
+    slopeLinesRef.current = []
   }
 
   /** 원본: center 기준 가장 가까운 하천/공원형 → 파란 dash Polyline */
@@ -298,7 +323,7 @@ export function KakaoMap({
     }
   }, [stations, showStations, status])
 
-  // 자전거도로
+  // 자전거도로 (경사 토글 ON이면 타입 색을 옅게 깔고, 경사 세그먼트를 위에 그림)
   useEffect(() => {
     const map = mapRef.current
     if (!map || status !== 'ready' || !window.kakao?.maps) return
@@ -311,6 +336,7 @@ export function KakaoMap({
     const batch = 200
     let cancelled = false
     let raf = 0
+    const opacity = showSlope ? 0.18 : 0.45
 
     const drawBatch = () => {
       if (cancelled || !mapRef.current) return
@@ -323,7 +349,7 @@ export function KakaoMap({
           path: pathLatLng,
           strokeWeight: 4,
           strokeColor: courseTypeColor(type),
-          strokeOpacity: 0.45,
+          strokeOpacity: opacity,
           strokeStyle: 'solid',
         })
         polylinesRef.current.push(line)
@@ -337,12 +363,118 @@ export function KakaoMap({
       cancelAnimationFrame(raf)
       clearRoads()
     }
-  }, [showBikePaths, bikeRoads, status])
+  }, [showBikePaths, showSlope, bikeRoads, status])
+
+  // 경사도 레이어 — 지도 중심 근처 도로 고도 분석 후 구간 색칠
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || status !== 'ready' || !window.kakao?.maps) return
+
+    clearSlopeLines()
+    if (!showSlope || !bikeRoads?.length) {
+      setSlopeHint(null)
+      setSlopeLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const { lat: cLat, lng: cLng } = centerRef.current
+
+    type Cand = { index: number; road: BikeRoadLine; dist: number }
+    const cands: Cand[] = []
+    for (let idx = 0; idx < bikeRoads.length; idx++) {
+      const road = bikeRoads[idx]
+      if (!road.path || road.path.length < SLOPE_MIN_PATH_POINTS) continue
+      // 도로 중점 기준 거리
+      const mid = road.path[Math.floor(road.path.length / 2)] ?? road.path[0]
+      const dist = getDistanceMeters({ lat: cLat, lng: cLng }, mid)
+      if (dist > SLOPE_NEAR_M) continue
+      cands.push({ index: idx, road, dist })
+    }
+    cands.sort((a, b) => a.dist - b.dist)
+    const picked = cands.slice(0, SLOPE_MAX_ROADS)
+
+    if (!picked.length) {
+      setSlopeHint('이 위치 근처 도로 없음 · 지도를 이동해 보세요')
+      return
+    }
+
+    const uncached = picked.filter((p) => !slopeCacheRef.current.has(p.index))
+
+    async function run() {
+      setSlopeLoading(true)
+      try {
+        if (uncached.length) {
+          const paths = uncached.map((p) => ({
+            path_id: p.index,
+            coordinates: p.road.path.map((pt) => [pt.lng, pt.lat]),
+          }))
+          const res = await api.elevationBatch(paths, 12)
+          if (cancelled) return
+          for (const profile of res.profiles) {
+            const id = Number(profile.path_id)
+            if (Number.isFinite(id)) slopeCacheRef.current.set(id, profile)
+          }
+        }
+        if (cancelled || !mapRef.current || !window.kakao?.maps) return
+
+        const maps = window.kakao.maps
+        clearSlopeLines()
+        let steepSegs = 0
+        let maxGrade = 0
+        let drawn = 0
+
+        for (const { index } of picked) {
+          const profile = slopeCacheRef.current.get(index)
+          if (!profile?.segments?.length) continue
+          for (const seg of profile.segments) {
+            if (!seg.path || seg.path.length < 2) continue
+            maxGrade = Math.max(maxGrade, seg.abs_grade_pct ?? 0)
+            if (seg.is_steep) steepSegs += 1
+            const pathLatLng = seg.path.map(
+              ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
+            )
+            const line = new maps.Polyline({
+              map: mapRef.current!,
+              path: pathLatLng,
+              strokeWeight: seg.is_steep ? 7 : 5,
+              strokeColor: seg.color || '#ef4444',
+              strokeOpacity: seg.is_steep ? 0.95 : 0.75,
+              strokeStyle: 'solid',
+              zIndex: seg.is_steep ? 4 : 3,
+            })
+            slopeLinesRef.current.push(line)
+            drawn += 1
+          }
+        }
+
+        setSlopeHint(
+          `경사 분석 ${picked.length}개 도로 · 급경사 구간 ${steepSegs} · 최대 ${maxGrade.toFixed(1)}%` +
+            (drawn ? '' : ' · 데이터 없음'),
+        )
+      } catch (e) {
+        if (!cancelled) {
+          setSlopeHint(
+            `경사 불러오기 실패 — 백엔드 확인 (${e instanceof Error ? e.message.slice(0, 80) : 'error'})`,
+          )
+        }
+      } finally {
+        if (!cancelled) setSlopeLoading(false)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+      clearSlopeLines()
+    }
+  }, [showSlope, bikeRoads, status, slopeTick])
 
   const roadCount = bikeRoads?.length ?? 0
   const layerHint = [
     showStations ? `대여소 ${stations.length}` : null,
     showBikePaths ? (bikeRoads ? `도로 ${roadCount}` : '도로 로딩…') : null,
+    showSlope ? (slopeLoading ? '경사 분석 중…' : '경사 ON') : null,
     `줌 ${zoomLevel}`,
   ]
     .filter(Boolean)
@@ -366,9 +498,9 @@ export function KakaoMap({
       )}
 
       {status === 'ready' && (
-        <div className="pointer-events-none absolute bottom-3 left-3 max-w-[75%] rounded-lg bg-white/90 px-2 py-1 text-[11px] text-slate-600 shadow">
+        <div className="pointer-events-none absolute bottom-3 left-3 max-w-[80%] rounded-lg bg-white/90 px-2 py-1 text-[11px] text-slate-600 shadow">
           <div>{layerHint || '레이어 꺼짐'}</div>
-          {showBikePaths && (
+          {showBikePaths && !showSlope && (
             <div className="mt-0.5 flex flex-wrap gap-2 text-[10px]">
               <span style={{ color: 'green' }}>● 하천/공원형</span>
               <span style={{ color: 'gray' }}>● 도로변형</span>
@@ -376,8 +508,20 @@ export function KakaoMap({
               <span style={{ color: 'blue' }}>━ 추천</span>
             </div>
           )}
+          {showSlope && (
+            <div className="mt-0.5 flex flex-wrap gap-2 text-[10px]">
+              <span style={{ color: '#22c55e' }}>● &lt;2%</span>
+              <span style={{ color: '#eab308' }}>● 2–4%</span>
+              <span style={{ color: '#f97316' }}>● 4–6%</span>
+              <span style={{ color: '#ef4444' }}>● 6–8%</span>
+              <span style={{ color: '#991b1b' }}>● ≥8%</span>
+            </div>
+          )}
           {recommendHint && (
             <div className="mt-0.5 text-[10px] font-medium text-blue-700">{recommendHint}</div>
+          )}
+          {slopeHint && (
+            <div className="mt-0.5 text-[10px] font-medium text-red-700">{slopeHint}</div>
           )}
           {roadError && (
             <div className="mt-0.5 text-[10px] text-red-600">도로: {roadError}</div>

@@ -9,6 +9,8 @@ export function MapLayerToggles() {
     toggleStations,
     showBikePaths,
     toggleBikePaths,
+    showSlope,
+    toggleSlope,
   } = useUiStore()
 
   return (
@@ -30,6 +32,13 @@ export function MapLayerToggles() {
         active={showBikePaths}
         onToggle={toggleBikePaths}
         activeClass="bg-emerald-500 text-white border-emerald-500"
+      />
+      <LayerToggle
+        label="경사도"
+        shortLabel="경사"
+        active={showSlope}
+        onToggle={toggleSlope}
+        activeClass="bg-red-500 text-white border-red-500"
       />
     </div>
   )

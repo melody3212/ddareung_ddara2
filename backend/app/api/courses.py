@@ -1,20 +1,8 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+
+from app.schemas.course import Course
 
 router = APIRouter(prefix="/courses", tags=["courses"])
-
-
-class Course(BaseModel):
-    course_id: int
-    title: str
-    distance_km: float
-    duration_min: int
-    difficulty: str = Field(description="beginner | intermediate | advanced")
-    tags: list[str] = []
-    rating: float | None = None
-    description: str | None = None
-    # simplified path for map polyline [[lng, lat], ...]
-    path: list[list[float]] | None = None
 
 
 MOCK_COURSES: list[Course] = [

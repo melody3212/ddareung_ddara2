@@ -76,6 +76,41 @@ declare namespace kakao {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       function addListener(target: object, type: string, handler: (...args: any[]) => void): void
     }
+    namespace services {
+      enum Status {
+        OK = 'OK',
+        ZERO_RESULT = 'ZERO_RESULT',
+        ERROR = 'ERROR',
+      }
+      type PlacesSearchResult = PlacesSearchResultItem[]
+      interface PlacesSearchResultItem {
+        id: string
+        place_name: string
+        category_name: string
+        phone: string
+        address_name: string
+        road_address_name: string
+        x: string
+        y: string
+      }
+      interface PlacesSearchOptions {
+        location?: LatLng
+        size?: number
+        sort?: string
+      }
+      type PlacesSearchCallback = (
+        data: PlacesSearchResult,
+        status: Status,
+        pagination?: object,
+      ) => void
+      class Places {
+        keywordSearch(
+          keyword: string,
+          callback: PlacesSearchCallback,
+          options?: PlacesSearchOptions,
+        ): void
+      }
+    }
   }
 }
 

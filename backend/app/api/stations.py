@@ -11,23 +11,12 @@ https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from app.core.config import get_settings
-from app.schemas.station import Station
+from app.schemas.station import Station, StationsMeta
 from app.services.seoul_bike import CACHE_TTL_SEC, fetch_bike_stations
 
 router = APIRouter(prefix="/stations", tags=["stations"])
-
-
-class StationsMeta(BaseModel):
-    source: str
-    count: int
-    configured: bool
-    cache_ttl_sec: int
-    note: str
-    docs_url: str = "https://data.seoul.go.kr/dataList/OA-15493/A/1/datasetView.do"
-    api_example: str = "http://openapi.seoul.go.kr:8088/{KEY}/json/bikeList/1/1000/"
 
 
 MOCK_STATIONS: list[Station] = [

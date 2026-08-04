@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import bike_paths, courses, health, stations, weather
+from app.api import bike_paths, courses, elevation, health, places, routes, stations, weather
 from app.core.config import get_settings
 
 
@@ -21,9 +21,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    api = FastAPI()  # not used; mount routers under /api via prefix
     # Register under /api
-    for r in (health.router, stations.router, courses.router, weather.router, bike_paths.router):
+    for r in (
+        health.router,
+        stations.router,
+        courses.router,
+        weather.router,
+        bike_paths.router,
+        elevation.router,
+        places.router,
+        routes.router,
+    ):
         app.include_router(r, prefix="/api")
 
     @app.get("/")
