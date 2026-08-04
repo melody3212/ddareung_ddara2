@@ -277,12 +277,15 @@ children.push(emptyLine());
 children.push(simpleTable(
   ["항목", "내용"],
   [
-    ["문서 버전", "v1.1"],
+    ["문서 버전", "v1.2"],
     ["작성일", "2026-08-04"],
-    ["문서 유형", "개발 문서 (요구사항 · 화면설계 · 아키텍처 · DB)"],
+    ["최종 수정", "2026-08-04 (구현 현황 반영: 지도·대여소·도로·날씨·바텀시트)"],
+    ["문서 유형", "개발 문서 (요구사항 · 화면설계 · 아키텍처 · DB · 구현현황)"],
     ["서비스명", "따릉따라 (Ddareung Ddara)"],
     ["대상 플랫폼", "React 웹앱 (SPA) → PWA → 앱 확장"],
-    ["개발 범위", "MVP + 확장 기능 로드맵"],
+    ["개발 범위", "MVP 구현 중 + 확장 기능 로드맵"],
+    ["저장소", "https://github.com/melody3212/ddareung_ddara2"],
+    ["원본 참고", "https://github.com/melody3212/ddareung-ddara"],
   ],
   [2800, CONTENT_W - 2800]
 ));
@@ -307,6 +310,8 @@ const tocItems = [
   "    5.2 ERD (데이터 관계도)",
   "6. 개발 로드맵",
   "7. 기술 스택 및 배포 전략",
+  "8. 구현 현황 (As-Is)",
+  "9. 관련 문서 · 변경 이력",
 ];
 tocItems.forEach(t => children.push(p(t, { size: 20, spacing: { after: 100, line: 300 } })));
 
@@ -323,7 +328,7 @@ children.push(bullet("핵심 가치: 지도 기반 시각화 + 날씨/라이딩 
 children.push(bullet("차별점: 개인 자전거 / 따릉이 모드 분리, 라이딩 실력 기반 맞춤, 단절 도로 연결 길찾기"));
 
 children.push(h2("1.2 MVP 범위"));
-children.push(callout("초점: 지도 기반 시각화 + 기본 추천 기능 구현 → 모바일에서도 편하게 사용 가능하게 반응형 디자인 또는 PWA 적용 예정"));
+children.push(callout("초점: 지도 기반 시각화 + 날씨/라이딩 점수 + 기본 추천 코스. 모바일 퍼스트 레이아웃·바텀시트 UX. PWA/앱은 확장 단계."));
 children.push(emptyLine());
 children.push(simpleTable(
   ["구분", "기능", "우선순위"],
@@ -831,7 +836,7 @@ children.push(callout(
 ));
 children.push(p("↓", { align: AlignmentType.CENTER, size: 18, color: "4A5568" }));
 children.push(callout(
-  "[ External ] Kakao Maps/Local · 서울 열린데이터(따릉이·자전거도로) · 기상청/OpenWeather · 에어코리아"
+  "[ External ] Kakao Maps · 서울 열린데이터 bikeList(따릉이) · 정적 GeoJSON 자전거도로 · Open-Meteo(날씨·대기질·황사)"
 ));
 
 children.push(h2("4.3 계층별 역할"));
@@ -853,35 +858,34 @@ children.push(h2("4.4 책임 경계"));
 children.push(simpleTable(
   ["영역", "클라이언트", "서버"],
   [
-    ["지도 표시", "Kakao Maps SDK", "대여소·도로·코스 좌표 제공"],
-    ["장소 검색", "검색 UI", "Kakao Local 프록시(키 보호)"],
-    ["따릉이 실시간", "마커·클러스터", "공공 API 호출·캐시·정규화"],
-    ["날씨·점수", "카드 UI", "외부 조회 + 점수 산출"],
-    ["추천 코스", "목록·경로 하이라이트", "조회/CRUD, GeoJSON"],
+    ["지도 표시", "Kakao Maps SDK", "—"],
+    ["자전거 도로", "정적 GeoJSON 로드·Polyline·유형 색상", "WMS 프록시(선택·레거시)"],
+    ["따릉이 실시간", "마커·클러스터·토글", "bikeList 페이징·캐시·정규화"],
+    ["날씨·대기·점수", "WeatherPanel·탭 UI", "Open-Meteo 조회 + 점수 엔진"],
+    ["추천 코스", "목록 탭·카드", "mock/CRUD 목록 API"],
     ["JWT (확장)", "토큰 보관·헤더", "발급·검증·Refresh"],
   ],
   [2000, 3400, CONTENT_W - 5400]
 ));
 
-children.push(h2("4.5 주요 API 엔드포인트 (초안)"));
+children.push(h2("4.5 주요 API 엔드포인트"));
 children.push(simpleTable(
   ["Method", "Path", "설명", "인증", "단계"],
   [
+    ["GET", "/api/health", "헬스체크", "N", "구현"],
+    ["GET", "/api/stations", "따릉이 대여소 전체(페이징 수집)", "N", "구현"],
+    ["GET", "/api/stations/meta", "대여소 출처·건수", "N", "구현"],
+    ["GET", "/api/weather", "현재·시간별 날씨·대기·라이딩점수", "N", "구현"],
+    ["GET", "/api/courses", "추천 코스 목록", "N", "구현(mock)"],
+    ["GET", "/api/courses/{id}", "코스 상세", "N", "구현(mock)"],
+    ["GET", "/api/bike-paths", "도로 mock 벡터(폴백)", "N", "구현"],
+    ["GET", "/api/bike-paths/meta", "도로 소스 메타", "N", "구현"],
     ["POST", "/api/auth/signup", "회원가입", "N", "확장"],
-    ["POST", "/api/auth/login", "로그인·JWT 발급", "N", "확장"],
-    ["POST", "/api/auth/refresh", "토큰 갱신", "Y*", "확장"],
-    ["GET", "/api/stations", "따릉이 대여소 목록", "N", "MVP"],
-    ["GET", "/api/bike-paths", "자전거 도로 Geo 데이터", "N", "MVP"],
-    ["GET", "/api/weather", "날씨·미세먼지·라이딩 점수", "N", "MVP"],
-    ["GET", "/api/courses", "추천 코스 목록", "N", "MVP"],
-    ["GET", "/api/courses/{id}", "코스 상세", "N", "MVP"],
-    ["POST", "/api/routes/search", "길찾기 경로 검색", "N/Y", "확장"],
+    ["POST", "/api/auth/login", "로그인·JWT", "N", "확장"],
+    ["POST", "/api/routes/search", "길찾기", "N/Y", "확장"],
     ["POST", "/api/rides", "주행 기록 저장", "Y", "확장"],
-    ["GET", "/api/rides/stats", "주간/월간 통계", "Y", "확장"],
-    ["GET", "/api/users/me", "마이페이지 프로필", "Y", "확장"],
-    ["GET", "/api/health", "헬스체크", "N", "MVP"],
   ],
-  [1100, 2600, 3200, 1000, CONTENT_W - 7900]
+  [1100, 2800, 3400, 900, CONTENT_W - 8200]
 ));
 
 children.push(h2("4.6 배포 아키텍처"));
@@ -1028,11 +1032,13 @@ children.push(simpleTable(
 ));
 
 children.push(h2("6.1 MVP 완료 기준 (Definition of Done)"));
-children.push(bullet("서울 영역에서 따릉이 대여소 마커와 자전거 도로 라인이 지도에 표시된다."));
-children.push(bullet("추천 코스 목록이 거리·시간·태그와 함께 노출되고 선택 가능하다."));
-children.push(bullet("날씨·미세먼지·라이딩 점수가 홈 바텀시트에 표시된다."));
-children.push(bullet("모바일 뷰포트에서 하단 탭·주요 화면이 깨지지 않는다."));
-children.push(bullet("핵심 화면(스플래시·홈·코스) 라우팅이 동작한다."));
+children.push(bullet("서울 영역에서 따릉이 대여소 마커(클러스터)와 자전거 도로 라인이 지도에 표시된다. ✅"));
+children.push(bullet("도로 유형(VALUE_03)에 따라 하천/공원형·도로변형 색 구분이 된다. ✅"));
+children.push(bullet("바텀시트에 라이딩 점수 + 날씨/추천코스 탭이 동작한다. ✅"));
+children.push(bullet("1시간 단위 예보·미세/초미세/황사 정보가 표시된다. ✅"));
+children.push(bullet("모바일 폭(max-w-lg) 하단 네비·시트 드래그 스냅이 동작한다. ✅"));
+children.push(bullet("스플래시·홈 라우팅이 동작한다. ✅"));
+children.push(bullet("(잔여) PWA 설치, 로그인/JWT, 길찾기, 주행 기록 — 확장"));
 
 children.push(h2("6.2 웹 → 앱 전환 전략"));
 children.push(simpleTable(
@@ -1083,24 +1089,25 @@ children.push(simpleTable(
   [2400, 3600, CONTENT_W - 6000]
 ));
 
-children.push(h2("7.3 외부 연동"));
+children.push(h2("7.3 외부 연동 (현재)"));
 children.push(simpleTable(
-  ["시스템", "용도", "호출 주체"],
+  ["시스템", "용도", "호출 주체", "비고"],
   [
-    ["Kakao Maps SDK", "지도 UI", "Client"],
-    ["Kakao Local/REST", "검색·지오코딩", "Server"],
-    ["서울 열린데이터", "따릉이·자전거도로", "Server"],
-    ["기상·대기 API", "날씨·미세먼지 → 라이딩 점수", "Server"],
+    ["Kakao Maps JS SDK", "지도·마커·폴리라인·클러스터", "Client", "VITE_KAKAO_JS_KEY"],
+    ["서울 열린데이터 bikeList", "따릉이 실시간 대여소", "Server", "SEOUL_OPENAPI_KEY, 1000건 페이징"],
+    ["bikeload.geojson", "자전거 도로 라인", "Client 정적", "VALUE_03 유형 분류"],
+    ["Open-Meteo Weather", "현재·1시간 예보", "Server", "키 불필요"],
+    ["Open-Meteo Air Quality", "PM10/PM2.5/dust(황사)", "Server", "키 불필요"],
   ],
-  [2800, 3600, CONTENT_W - 6400]
+  [2600, 2800, 1600, CONTENT_W - 7000]
 ));
 
 children.push(h2("7.4 배포 · CI/CD · 환경변수"));
-children.push(bullet("Vercel: 프론트엔드 호스팅"));
-children.push(bullet("Railway / Render: FastAPI + PostgreSQL"));
-children.push(bullet("GitHub Actions: lint, test, build, deploy"));
-children.push(bullet("Web env: VITE_API_BASE_URL, VITE_KAKAO_JS_KEY"));
-children.push(bullet("API env: DATABASE_URL, JWT_SECRET, KAKAO_REST_KEY, SEOUL_OPENAPI_KEY, WEATHER/AIR keys, CORS_ORIGINS, REDIS_URL(선택)"));
+children.push(bullet("저장소: github.com/melody3212/ddareung_ddara2 (main)"));
+children.push(bullet("배포 예정: Vercel(FE) + Railway/Render(API+DB)"));
+children.push(bullet("GitHub Actions: lint, test, build, deploy (예정)"));
+children.push(bullet("Web env: VITE_API_BASE_URL, VITE_KAKAO_JS_KEY (.env, gitignore)"));
+children.push(bullet("API env: SEOUL_OPENAPI_KEY, CORS_ORIGINS, (확장) JWT/DB/SAFEMAP 등 — .env gitignore"));
 
 children.push(h2("7.5 비기능 요구사항 (요약)"));
 children.push(simpleTable(
@@ -1117,10 +1124,81 @@ children.push(simpleTable(
 ));
 
 children.push(h2("7.6 관련 문서 · ADR 요약"));
-children.push(bullet("상세: 따릉따라_시스템아키텍처_v1.0.docx"));
-children.push(bullet("ADR-01 지도=Kakao · ADR-02 FE=React+Vite+TS · ADR-03 BE 본편=FastAPI"));
-children.push(bullet("ADR-04 NestJS=학습 경로 · ADR-05 외부 API 서버 프록시 · ADR-06 DB=PostgreSQL"));
-children.push(bullet("ADR-07 MVP 인증 생략 가능(게스트) · ADR-08 배포=Vercel+Railway/Render"));
+children.push(bullet("시스템아키텍처: 따릉따라_시스템아키텍처_v1.0.docx"));
+children.push(bullet("로컬 실행: docs/로컬실행가이드.md · 따릉따라_로컬실행가이드_v1.0.docx"));
+children.push(bullet("데이터 연동: docs/데이터연동가이드.md"));
+children.push(bullet("작업 일지 매핑: docs/작업일지_4월_원본기능.md"));
+children.push(bullet("ADR-01 지도=Kakao · ADR-02 FE=React+Vite+TS · ADR-03 BE=FastAPI"));
+children.push(bullet("ADR-05 공공·날씨 API는 서버 경유 · ADR-07 MVP 게스트 이용 · ADR-09 도로는 정적 GeoJSON"));
+children.push(bullet("ADR-10 날씨=Open-Meteo(시간별+대기질) · ADR-11 바텀시트 탭=날씨|추천코스"));
+
+children.push(pageBreak());
+
+// ========== 8. 구현 현황 ==========
+children.push(h1("8. 구현 현황 (As-Is)"));
+children.push(p("기준 저장소: github.com/melody3212/ddareung_ddara2 · 브랜치 main (2026-08-04 갱신)."));
+children.push(emptyLine());
+
+children.push(h2("8.1 기능 구현 체크"));
+children.push(simpleTable(
+  ["영역", "내용", "상태"],
+  [
+    ["지도", "Kakao Maps, 서울 중심, 줌/센터", "완료"],
+    ["대여소", "bikeList 전체 페이징, 커스텀 마커, MarkerClusterer, ON/OFF", "완료"],
+    ["자전거 도로", "bikeload.geojson, VALUE_03 분류, 초록/회색/빨강 Polyline, ON/OFF", "완료"],
+    ["내 위치", "우측 토글 하단 버튼, Geolocation 이동", "완료"],
+    ["추천 경로 하이라이트", "가까운 하천/공원형 파란 dash 라인", "완료"],
+    ["바텀시트", "드래그 스냅 접힘/절반/전체, 스크롤바 숨김", "완료"],
+    ["라이딩 점수", "기온·강수·바람·PM·황사 규칙 점수 0~100", "완료"],
+    ["날씨 탭", "현재+1시간 예보 12h, 미세/초미세/황사", "완료"],
+    ["추천코스 탭", "mock 코스 목록 카드", "완료"],
+    ["하단 네비", "max-w-lg 폭 맞춤 4탭", "완료"],
+    ["인증/JWT", "회원가입·로그인", "미구현(확장)"],
+    ["길찾기", "출발·도착·모드", "미구현(확장)"],
+    ["주행 기록", "GPS 대시보드·통계", "미구현(확장)"],
+    ["PWA", "설치·오프라인", "미구현(확장)"],
+  ],
+  [2200, 4800, CONTENT_W - 7000]
+));
+
+children.push(h2("8.2 홈 화면 UI 구조 (현재)"));
+children.push(bullet("전체 화면 지도 (absolute inset)"));
+children.push(bullet("우측 세로 버튼: 자전거도로 토글 → 따릉이 토글 → 내 위치"));
+children.push(bullet("하단 바텀시트: 라이딩 점수 → [날씨 | 추천코스] 탭 → 탭 본문"));
+children.push(bullet("하단 네비: 홈 / 주행 / 커뮤니티 / 마이 (앱 폭 max-w-lg)"));
+children.push(emptyLine());
+children.push(callout(
+  "자전거 도로 유형: 전용도로·전용차로·겸용(분리형)=하천/공원형(green) / " +
+  "우선도로·차도높이형·겸용(비분리형)=도로변형(gray) / 기타(red). " +
+  "원본: github.com/melody3212/ddareung-ddara MapPage.jsx"
+));
+
+children.push(h2("8.3 프로젝트 디렉터리 (요약)"));
+children.push(bullet("frontend/ — React + TS + Vite · public/data/bikeload.geojson"));
+children.push(bullet("frontend/src/components — KakaoMap, MapButtons, BottomSheet, WeatherPanel …"));
+children.push(bullet("frontend/src/lib — api, bikeRoad, loadKakaoMap, geo"));
+children.push(bullet("backend/app — FastAPI (api, services, schemas, core)"));
+children.push(bullet("docs/ — 로컬실행·데이터연동·작업일지 마크다운"));
+children.push(bullet("*.docx — 개발문서·아키텍처·로컬실행 가이드"));
+
+children.push(h2("8.4 로컬 실행"));
+children.push(bullet("Backend: cd backend → venv 활성화 → uvicorn app.main:app --reload --port 8000"));
+children.push(bullet("Frontend: cd frontend → npm run dev → http://localhost:5173"));
+children.push(bullet("상세: docs/로컬실행가이드.md 또는 scripts/start-*.ps1"));
+
+children.push(pageBreak());
+
+// ========== 9. 변경 이력 ==========
+children.push(h1("9. 관련 문서 · 변경 이력"));
+children.push(simpleTable(
+  ["버전", "일자", "내용"],
+  [
+    ["v1.0", "2026-08-04", "최초 작성 (요구사항·화면·아키텍처 초안)"],
+    ["v1.1", "2026-08-04", "아키텍처·기술스택을 시스템아키텍처 문서와 동기화 (FastAPI·Kakao 확정)"],
+    ["v1.2", "2026-08-04", "구현 현황 반영: GeoJSON 도로, bikeList 대여소, Open-Meteo 날씨, 바텀시트 탭, 저장소 링크"],
+  ],
+  [1200, 2000, CONTENT_W - 3200]
+));
 
 children.push(emptyLine());
 children.push(emptyLine());
@@ -1128,12 +1206,12 @@ children.push(new Paragraph({
   alignment: AlignmentType.CENTER,
   spacing: { before: 400 },
   border: { top: { style: BorderStyle.SINGLE, size: 6, color: "CBD5E0", space: 12 } },
-  children: [new TextRun({ text: "— 따릉따라 개발문서 v1.1 —", size: 18, font: "Malgun Gothic", color: "A0AEC0" })]
+  children: [new TextRun({ text: "— 따릉따라 개발문서 v1.2 —", size: 18, font: "Malgun Gothic", color: "A0AEC0" })]
 }));
 children.push(new Paragraph({
   alignment: AlignmentType.CENTER,
   spacing: { before: 80 },
-  children: [new TextRun({ text: "본 문서는 개발문서작성법(요구사항·화면설계·아키텍처·DB)에 따라 작성되었으며, 화면설계서 프로토타입 스크린샷을 반영합니다.", size: 16, font: "Malgun Gothic", color: "A0AEC0" })]
+  children: [new TextRun({ text: "본 문서는 개발문서작성법(요구사항·화면설계·아키텍처·DB)에 따라 작성되었으며, 구현 현황(As-Is)을 포함합니다.", size: 16, font: "Malgun Gothic", color: "A0AEC0" })]
 }));
 
 // ─── build document ────────────────────────────────────────
@@ -1195,7 +1273,7 @@ const doc = new Document({
             spacing: { after: 80 },
             children: [
               new TextRun({ text: "따릉따라  개발문서", size: 16, font: "Malgun Gothic", color: BLUE, bold: true }),
-              new TextRun({ text: "  |  Development Document v1.1", size: 14, font: "Arial", color: "A0AEC0" })
+              new TextRun({ text: "  |  Development Document v1.2", size: 14, font: "Arial", color: "A0AEC0" })
             ]
           })
         ]
@@ -1222,7 +1300,7 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then(buffer => {
-  const names = ["따릉따라_개발문서_v1.1.docx", "따릉따라_개발문서_v1.0.docx"];
+  const names = ["따릉따라_개발문서_v1.2.docx", "따릉따라_개발문서_v1.1.docx", "따릉따라_개발문서_v1.0.docx"];
   let written = null;
   for (const name of names) {
     const out = path.join(ROOT, name);
