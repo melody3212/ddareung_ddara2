@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NavigationPage, RouteSearchPage } from './features/routes'
+import { RideDetailPage, RidingPage } from './features/rides'
 import { SplashPage } from './pages/SplashPage'
 import { HomePage } from './pages/HomePage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -28,15 +29,8 @@ export default function App() {
             <Route path="/signup" element={<PlaceholderPage title="회원가입" />} />
             <Route path="/search-route" element={<RouteSearchPage />} />
             <Route path="/navigate" element={<NavigationPage />} />
-            <Route
-              path="/riding"
-              element={
-                <PlaceholderPage
-                  title="주행"
-                  note="길찾기에서 경로를 고른 뒤 길안내를 시작하면 안내 화면으로 이동합니다."
-                />
-              }
-            />
+            <Route path="/riding" element={<RidingPage />} />
+            <Route path="/riding/:rideId" element={<RideDetailPage />} />
             <Route path="/community" element={<PlaceholderPage title="커뮤니티" note="확장 후반" />} />
             <Route path="/mypage" element={<PlaceholderPage title="마이페이지" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
