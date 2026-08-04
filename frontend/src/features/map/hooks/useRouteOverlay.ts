@@ -11,7 +11,6 @@ export type RouteOverlayLeg = {
 export type RouteOverlay = {
   path: number[][]
   segments?: GradeSegment[]
-  /** 있으면 도보=점선 회색, 자전거=경사 색으로 구분 */
   legs?: RouteOverlayLeg[]
   fitBounds?: boolean
   follow?: { lat: number; lng: number; level?: number } | null
@@ -25,7 +24,11 @@ type Args = {
   routeMarkersRef: MutableRefObject<kakao.maps.Marker[]>
 }
 
-/** 길찾기 결과 경로·경사 세그먼트 오버레이 */
+/**
+ * 길찾기 경로 오버레이
+ * - 경사 세그먼트가 있으면 **전체 경로(일반도로 포함)** 를 경사 색으로 표시
+ * - 도보 레그는 점선, 자전거 레그는 실선 베이스 위에 경사 색
+ */
 export function useRouteOverlay({
   mapRef,
   status,
@@ -52,95 +55,26 @@ export function useRouteOverlay({
     const segments = routeOverlay.segments
     const legs = routeOverlay.legs
 
-    // 따릉이: 레그 단위로 도보(점선) / 자전거(실선·경사색) 구분
+    // 1) 베이스 라인 (도보=점선 회색, 자전거=얇은 베이스)
     if (legs && legs.length > 0) {
       for (const leg of legs) {
         if (!leg.path || leg.path.length < 2) continue
-        if (leg.kind === 'walk') {
-          const pathLatLng = leg.path.map(
-            ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
-          )
-          const line = new maps.Polyline({
-            map,
-            path: pathLatLng,
-            strokeWeight: 5,
-            strokeColor: '#64748b',
-            strokeOpacity: 0.95,
-            strokeStyle: 'shortdash',
-            zIndex: 4,
-          })
-          routeLinesRef.current.push(line)
-        } else if (segments?.length) {
-          // 자전거 구간만 경사 세그먼트 중 겹치는 부분 근사: 전체 segments 중 leg 범위는 단순화해 전체 bike path에 색 입힘
-          // 세그먼트가 전체 path 기준이면 bike leg path에 대해 한 줄 단색 + steep 강조 대신 segments 필터 없이 path 사용
-          const pathLatLng = leg.path.map(
-            ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
-          )
-          const line = new maps.Polyline({
-            map,
-            path: pathLatLng,
-            strokeWeight: 6,
-            strokeColor: '#10b981',
-            strokeOpacity: 0.9,
-            strokeStyle: 'solid',
-            zIndex: 5,
-          })
-          routeLinesRef.current.push(line)
-        } else {
-          const pathLatLng = leg.path.map(
-            ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
-          )
-          const line = new maps.Polyline({
-            map,
-            path: pathLatLng,
-            strokeWeight: 6,
-            strokeColor: '#10b981',
-            strokeOpacity: 0.9,
-            strokeStyle: 'solid',
-            zIndex: 5,
-          })
-          routeLinesRef.current.push(line)
-        }
-      }
-
-      // 자전거 구간에 경사 색 세그먼트 오버레이 (있을 때)
-      if (segments?.length) {
-        for (const seg of segments) {
-          if (!seg.path || seg.path.length < 2) continue
-          // 도보 구간과 겹치면 흐리게 그리지 않도록 is_steep 위주 강조
-          const pathLatLng = seg.path.map(
-            ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
-          )
-          const line = new maps.Polyline({
-            map,
-            path: pathLatLng,
-            strokeWeight: seg.is_steep ? 7 : 4,
-            strokeColor: seg.color || '#10b981',
-            strokeOpacity: seg.is_steep ? 0.95 : 0.55,
-            strokeStyle: 'solid',
-            zIndex: seg.is_steep ? 6 : 5,
-          })
-          routeLinesRef.current.push(line)
-        }
-      }
-    } else if (segments?.length) {
-      for (const seg of segments) {
-        if (!seg.path || seg.path.length < 2) continue
-        const pathLatLng = seg.path.map(
+        const pathLatLng = leg.path.map(
           ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
         )
+        const isWalk = leg.kind === 'walk'
         const line = new maps.Polyline({
           map,
           path: pathLatLng,
-          strokeWeight: seg.is_steep ? 8 : 6,
-          strokeColor: seg.color || '#3b82f6',
-          strokeOpacity: 0.9,
-          strokeStyle: 'solid',
-          zIndex: 5,
+          strokeWeight: isWalk ? 5 : 5,
+          strokeColor: isWalk ? '#64748b' : '#94a3b8',
+          strokeOpacity: isWalk ? 0.85 : 0.45,
+          strokeStyle: isWalk ? 'shortdash' : 'solid',
+          zIndex: 4,
         })
         routeLinesRef.current.push(line)
       }
-    } else {
+    } else if (!segments?.length) {
       const pathLatLng = path.map(
         ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
       )
@@ -156,52 +90,76 @@ export function useRouteOverlay({
       routeLinesRef.current.push(line)
     }
 
+    // 2) 경사 색 — 전체 경로 세그먼트 (자전거 도로 여부 무관, 일반도로 포함)
+    if (segments?.length) {
+      for (const seg of segments) {
+        if (!seg.path || seg.path.length < 2) continue
+        const pathLatLng = seg.path.map(
+          ([lng, lat]) => new maps.LatLng(Number(lat), Number(lng)),
+        )
+        const line = new maps.Polyline({
+          map,
+          path: pathLatLng,
+          strokeWeight: seg.is_steep ? 8 : 6,
+          strokeColor: seg.color || '#3b82f6',
+          strokeOpacity: seg.is_steep ? 0.98 : 0.92,
+          strokeStyle: 'solid',
+          zIndex: seg.is_steep ? 7 : 6,
+        })
+        routeLinesRef.current.push(line)
+      }
+    }
+
     // 출발·도착 마커
     const start = path[0]
     const end = path[path.length - 1]
     if (start) {
-      const m = new maps.Marker({
-        map,
-        position: new maps.LatLng(Number(start[1]), Number(start[0])),
-        title: '출발',
-        zIndex: 6,
-      })
-      routeMarkersRef.current.push(m)
+      routeMarkersRef.current.push(
+        new maps.Marker({
+          map,
+          position: new maps.LatLng(Number(start[1]), Number(start[0])),
+          title: '출발',
+          zIndex: 8,
+        }),
+      )
     }
     if (end) {
-      const m = new maps.Marker({
-        map,
-        position: new maps.LatLng(Number(end[1]), Number(end[0])),
-        title: '도착',
-        zIndex: 6,
-      })
-      routeMarkersRef.current.push(m)
+      routeMarkersRef.current.push(
+        new maps.Marker({
+          map,
+          position: new maps.LatLng(Number(end[1]), Number(end[0])),
+          title: '도착',
+          zIndex: 8,
+        }),
+      )
     }
 
-    // 대여/반납 지점 (walk→bike 전환점)
+    // 대여/반납 전환점
     if (legs && legs.length >= 2) {
       for (let i = 0; i < legs.length - 1; i++) {
         const cur = legs[i]
         const next = legs[i + 1]
         if (cur.kind === 'walk' && next.kind === 'bike' && cur.path.length) {
           const p = cur.path[cur.path.length - 1]
-          const m = new maps.Marker({
-            map,
-            position: new maps.LatLng(Number(p[1]), Number(p[0])),
-            title: '대여',
-            zIndex: 7,
-          })
-          routeMarkersRef.current.push(m)
+          routeMarkersRef.current.push(
+            new maps.Marker({
+              map,
+              position: new maps.LatLng(Number(p[1]), Number(p[0])),
+              title: '대여',
+              zIndex: 9,
+            }),
+          )
         }
         if (cur.kind === 'bike' && next.kind === 'walk' && cur.path.length) {
           const p = cur.path[cur.path.length - 1]
-          const m = new maps.Marker({
-            map,
-            position: new maps.LatLng(Number(p[1]), Number(p[0])),
-            title: '반납',
-            zIndex: 7,
-          })
-          routeMarkersRef.current.push(m)
+          routeMarkersRef.current.push(
+            new maps.Marker({
+              map,
+              position: new maps.LatLng(Number(p[1]), Number(p[0])),
+              title: '반납',
+              zIndex: 9,
+            }),
+          )
         }
       }
     }

@@ -76,22 +76,33 @@ export function HomePage() {
       )}
 
       <BottomSheet>
-        {weatherQ.isLoading && (
-          <p className="py-2 text-center text-sm text-slate-500">날씨 불러오는 중…</p>
-        )}
-        {weatherQ.isError && (
-          <p className="py-2 text-center text-sm text-red-500">
-            날씨 API 실패 — 백엔드 실행 여부를 확인하세요.
-          </p>
+        {/* 접힘: 날씨 요약 (실패 시에도 시트 안내) */}
+        {sheetSnap === 'collapsed' && (
+          <>
+            {weatherQ.isLoading && (
+              <p className="py-2 text-center text-sm text-slate-500">날씨 불러오는 중…</p>
+            )}
+            {weatherQ.isError && (
+              <p className="py-2 text-center text-xs text-red-500">
+                날씨 연결 실패 · 올려서 추천코스는 볼 수 있어요
+              </p>
+            )}
+            {weatherQ.data && <WeatherCompact weather={weatherQ.data} />}
+          </>
         )}
 
-        {weatherQ.data && sheetSnap === 'collapsed' && (
-          <WeatherCompact weather={weatherQ.data} />
-        )}
-
-        {weatherQ.data && sheetSnap !== 'collapsed' && (
+        {/* 펼침: 날씨 실패해도 탭·코스는 항상 표시 */}
+        {sheetSnap !== 'collapsed' && (
           <div className="space-y-3">
-            <RidingScoreCard weather={weatherQ.data} />
+            {weatherQ.data ? (
+              <RidingScoreCard weather={weatherQ.data} />
+            ) : weatherQ.isLoading ? (
+              <p className="py-2 text-center text-sm text-slate-500">라이딩 점수 불러오는 중…</p>
+            ) : (
+              <div className="rounded-2xl bg-slate-100 px-3 py-3 text-center text-xs text-slate-600">
+                날씨를 불러오지 못했습니다. 추천 코스는 아래에서 볼 수 있어요.
+              </div>
+            )}
 
             <div
               className="flex rounded-xl bg-slate-100 p-1"
@@ -110,9 +121,33 @@ export function HomePage() {
               />
             </div>
 
-            {sheetTab === 'weather' && <WeatherDetails weather={weatherQ.data} />}
+            {sheetTab === 'weather' && (
+              <>
+                {weatherQ.data && <WeatherDetails weather={weatherQ.data} />}
+                {weatherQ.isError && (
+                  <p className="py-4 text-center text-sm text-red-500">
+                    날씨 API 실패 — 백엔드 실행 여부를 확인하세요.
+                  </p>
+                )}
+                {weatherQ.isLoading && !weatherQ.data && (
+                  <p className="py-4 text-center text-sm text-slate-500">불러오는 중…</p>
+                )}
+              </>
+            )}
             {sheetTab === 'courses' && (
-              <CourseList courses={coursesQ.data ?? []} />
+              <>
+                {coursesQ.isError && (
+                  <p className="py-2 text-center text-sm text-red-500">
+                    추천 코스를 불러오지 못했습니다.
+                  </p>
+                )}
+                {coursesQ.isLoading && (
+                  <p className="py-4 text-center text-sm text-slate-500">코스 불러오는 중…</p>
+                )}
+                {!coursesQ.isLoading && (
+                  <CourseList courses={coursesQ.data ?? []} />
+                )}
+              </>
             )}
           </div>
         )}

@@ -393,10 +393,9 @@ export function KakaoMap({
           {routeOverlay?.legs?.some((l) => l.kind === 'walk') && (
             <span className="mr-2 text-slate-500">╌ 도보 </span>
           )}
-          <span style={{ color: '#10b981' }}>━ 자전거 </span>
+          <span className="text-slate-500">경로 전체 경사(일반도로 포함) </span>
           {routeOverlay?.segments?.length ? (
             <span className="mt-0.5 block">
-              <span className="text-slate-500">경사: </span>
               <span style={{ color: '#22c55e' }}>●평지 </span>
               <span style={{ color: '#eab308' }}>●완만 </span>
               <span style={{ color: '#ef4444' }}>●급경사(≥6%)</span>
