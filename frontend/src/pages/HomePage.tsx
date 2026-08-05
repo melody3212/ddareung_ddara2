@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   CourseList,
-  courseToRouteSearchQuery,
   coursesApi,
-  saveCourseForRide,
   saveOfficialToMyCourses,
+  useCourseActions,
+  useCourseSelection,
   withOfficialSource,
+  categoryLabel,
   type Course,
   type CourseCategory,
 } from '../features/courses'
@@ -22,18 +23,26 @@ import {
 import { useUiStore } from '../shared/store/uiStore'
 import { BottomNav } from '../shared/ui/BottomNav'
 import { BottomSheet } from '../shared/ui/BottomSheet'
+import { useToast } from '../features/rides'
 
 type SheetTab = 'weather' | 'courses'
 
 export function HomePage() {
-  const navigate = useNavigate()
   const { showStations, showBikePaths, showSlope, sheetSnap, setSheetSnap } =
     useUiStore()
   const [locationRequestId, setLocationRequestId] = useState(0)
   const [sheetTab, setSheetTab] = useState<SheetTab>('weather')
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
-  /** 같은 코스 재클릭·지도에서 보기 시 fitBounds 강제 */
-  const [courseFocusKey, setCourseFocusKey] = useState(0)
+  const { startRoute, startRide } = useCourseActions()
+  const { toast, showToast } = useToast()
+
+  const selection = useCourseSelection({
+    onSelectExtra: (course) => {
+      if (course) {
+        setSheetTab('courses')
+        setSheetSnap('collapsed')
+      }
+    },
+  })
 
   const stationsQ = useQuery({
     queryKey: ['stations'],
@@ -49,68 +58,23 @@ export function HomePage() {
     queryKey: ['courses'],
     queryFn: () => coursesApi.list(),
   })
-  const [saveToast, setSaveToast] = useState<string | null>(null)
-
   const stationsMetaQ = useQuery({
     queryKey: ['stations-meta'],
     queryFn: stationsApi.meta,
     staleTime: 60_000,
   })
 
-  /** 홈 추천 = 공식만 (저장 목록은 내 코스 탭) */
   const recommendCourses = useMemo(
     () => withOfficialSource(coursesQ.data ?? []),
     [coursesQ.data],
   )
 
-  const courseOverlay = useMemo(() => {
-    const path = selectedCourse?.path
-    if (!path || path.length < 2) return null
-    return {
-      path,
-      fitBounds: true as const,
-      variant: 'course' as const,
-      focusKey: courseFocusKey,
-      // 상단 칩 + 하단 네비·접힌 시트 영역 피해서 경로가 보이게
-      boundsPadding: [72, 40, 160, 40] as [number, number, number, number],
-    }
-  }, [selectedCourse, courseFocusKey])
-
-  const handleSelectCourse = (course: Course | null) => {
-    setSelectedCourse(course)
-    if (course) {
-      setSheetTab('courses')
-      // 지도 대부분이 보이도록 시트 접기 + 경로 재포커스
-      setSheetSnap('collapsed')
-      setCourseFocusKey((n) => n + 1)
-    }
-  }
-
-  const handleStartRoute = (course: Course) => {
-    const qs = courseToRouteSearchQuery(course)
-    if (!qs) {
-      alert('이 코스에는 경로 좌표가 없습니다.')
-      return
-    }
-    navigate(`/search-route?${qs}`)
-  }
-
-  const handleStartRide = (course: Course) => {
-    if (!course.path || course.path.length < 2) {
-      alert('이 코스에는 경로 좌표가 없습니다.')
-      return
-    }
-    saveCourseForRide(course)
-    navigate('/riding')
-  }
+  const selectedCourse = selection.selected
 
   const handleSaveToMy = (course: Course, category: CourseCategory) => {
     try {
       saveOfficialToMyCourses(course, category)
-      const label =
-        category === 'commute' ? '출퇴근' : category === 'leisure' ? '여가' : '기타'
-      setSaveToast(`내 코스(${label})에 담았습니다`)
-      window.setTimeout(() => setSaveToast(null), 2800)
+      showToast(`내 코스(${categoryLabel(category)})에 담았습니다`, 2800)
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장 실패')
     }
@@ -124,15 +88,13 @@ export function HomePage() {
         showSlope={selectedCourse ? false : showSlope}
         stations={stationsQ.data}
         locationRequestId={locationRequestId}
-        routeOverlay={courseOverlay}
-        // 코스 선택 시 파란 추천선 숨겨 강조 경로만 보이게
+        routeOverlay={selection.overlay}
         compact={Boolean(selectedCourse)}
         className="absolute inset-0 h-full w-full"
       />
 
       <MapButtons onMyLocation={() => setLocationRequestId((n) => n + 1)} />
 
-      {/* 좌상단 정보 — 한 줄로 겹침 최소화 */}
       <div className="pointer-events-none absolute left-3 top-3 z-20 flex max-w-[calc(100%-5.5rem)] flex-col gap-1.5">
         {stationsMetaQ.data && (
           <div className="w-fit rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow">
@@ -153,7 +115,7 @@ export function HomePage() {
               type="button"
               className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-slate-600 shadow-sm"
               onClick={() => {
-                setCourseFocusKey((n) => n + 1)
+                selection.refocus()
                 setSheetSnap('collapsed')
               }}
             >
@@ -162,7 +124,7 @@ export function HomePage() {
             <button
               type="button"
               className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-slate-500 shadow-sm"
-              onClick={() => setSelectedCourse(null)}
+              onClick={() => selection.clear()}
             >
               닫기
             </button>
@@ -177,7 +139,6 @@ export function HomePage() {
       )}
 
       <BottomSheet>
-        {/* 접힘: 날씨 요약 (실패 시에도 시트 안내) */}
         {sheetSnap === 'collapsed' && (
           <>
             {selectedCourse ? (
@@ -207,7 +168,6 @@ export function HomePage() {
           </>
         )}
 
-        {/* 펼침: 날씨 실패해도 탭·코스는 항상 표시 */}
         {sheetSnap !== 'collapsed' && (
           <div className="space-y-3">
             {weatherQ.data ? (
@@ -254,6 +214,7 @@ export function HomePage() {
                 )}
               </>
             )}
+
             {sheetTab === 'courses' && (
               <>
                 {coursesQ.isError && (
@@ -266,9 +227,9 @@ export function HomePage() {
                     코스 불러오는 중…
                   </p>
                 )}
-                {saveToast && (
+                {toast && (
                   <p className="rounded-xl bg-violet-600 px-3 py-2 text-center text-[11px] font-semibold text-white">
-                    {saveToast} ·{' '}
+                    {toast} ·{' '}
                     <Link to="/my-courses" className="underline">
                       내 코스 보기
                     </Link>
@@ -278,10 +239,10 @@ export function HomePage() {
                   <CourseList
                     mode="recommend"
                     courses={recommendCourses}
-                    selectedId={selectedCourse?.course_id ?? null}
-                    onSelect={handleSelectCourse}
-                    onStartRoute={handleStartRoute}
-                    onStartRide={handleStartRide}
+                    selectedId={selection.selectedId}
+                    onSelect={selection.select}
+                    onStartRoute={startRoute}
+                    onStartRide={startRide}
                     onSaveToMy={handleSaveToMy}
                   />
                 )}

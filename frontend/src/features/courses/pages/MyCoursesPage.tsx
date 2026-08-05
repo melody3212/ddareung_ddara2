@@ -1,66 +1,41 @@
 /**
  * 내 코스 탭 — 저장한 경로 · 추천에서 담은 코스
- * 분류: 여가 / 출퇴근 / 기타
  */
-import { useCallback, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { KakaoMap } from '../../map'
 import { BottomNav } from '../../../shared/ui/BottomNav'
 import { CourseList } from '../components/CourseList'
-import { saveCourseForRide } from '../courseSession'
-import { courseToRouteSearchQuery } from '../labels'
+import { useCourseActions } from '../hooks/useCourseActions'
+import { useCourseSelection } from '../hooks/useCourseSelection'
+import { useLocalCourses } from '../hooks/useLocalCourses'
 import {
   deleteLocalCourse,
-  listLocalCourses,
   updateLocalCourseCategory,
 } from '../localCourseStorage'
 import type { Course, CourseCategory } from '../types'
+import { useToast } from '../../rides'
+
+const MAP_PAD: [number, number, number, number] = [56, 36, 120, 36]
 
 export function MyCoursesPage() {
-  const navigate = useNavigate()
-  const [tick, setTick] = useState(0)
-  const [selected, setSelected] = useState<Course | null>(null)
-  const [focusKey, setFocusKey] = useState(0)
-  const [toast, setToast] = useState<string | null>(null)
-
-  const courses = useMemo(() => {
-    void tick
-    return listLocalCourses() as Course[]
-  }, [tick])
-
-  const refresh = useCallback(() => setTick((n) => n + 1), [])
-
-  const overlay = useMemo(() => {
-    const path = selected?.path
-    if (!path || path.length < 2) return null
-    return {
-      path,
-      fitBounds: true as const,
-      variant: 'course' as const,
-      focusKey,
-      boundsPadding: [56, 36, 120, 36] as [number, number, number, number],
-    }
-  }, [selected, focusKey])
-
-  const handleSelect = (c: Course | null) => {
-    setSelected(c)
-    if (c) setFocusKey((n) => n + 1)
-  }
+  const { courses, refresh } = useLocalCourses()
+  const { startRoute, startRide } = useCourseActions()
+  const { toast, showToast } = useToast()
+  const selection = useCourseSelection({ boundsPadding: MAP_PAD })
 
   const handleDelete = (c: Course) => {
     if (!window.confirm(`「${c.title}」을(를) 내 코스에서 삭제할까요?`)) return
     deleteLocalCourse(c.course_id)
-    if (selected?.course_id === c.course_id) setSelected(null)
+    if (selection.selected?.course_id === c.course_id) selection.clear()
     refresh()
-    setToast('삭제했습니다.')
-    window.setTimeout(() => setToast(null), 2500)
+    showToast('삭제했습니다.', 2500)
   }
 
   const handleCategory = (c: Course, category: CourseCategory) => {
     updateLocalCourseCategory(c.course_id, category)
     refresh()
-    if (selected?.course_id === c.course_id) {
-      setSelected({ ...c, category })
+    if (selection.selected?.course_id === c.course_id) {
+      selection.select({ ...c, category })
     }
   }
 
@@ -74,26 +49,28 @@ export function MyCoursesPage() {
       </header>
 
       <div className="relative h-[32vh] min-h-[180px] max-h-[260px] w-full shrink-0 border-b border-slate-200">
-        {overlay ? (
+        {selection.overlay ? (
           <KakaoMap
             showStations={false}
             showBikePaths={false}
             showSlope={false}
-            routeOverlay={overlay}
+            routeOverlay={selection.overlay}
             compact
             className="absolute inset-0 h-full w-full"
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1 bg-slate-100 px-6 text-center">
-            <p className="text-sm text-slate-500">코스를 선택하면 지도에 경로가 표시됩니다</p>
+            <p className="text-sm text-slate-500">
+              코스를 선택하면 지도에 경로가 표시됩니다
+            </p>
             <p className="text-[11px] text-slate-400">
               추천코스는 홈에서 「내 코스에 담기」
             </p>
           </div>
         )}
-        {selected && (
+        {selection.selected && (
           <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-orange-200 bg-orange-50/95 px-2.5 py-1 text-[10px] font-semibold text-orange-900 shadow">
-            {selected.title}
+            {selection.selected.title}
           </div>
         )}
       </div>
@@ -108,24 +85,10 @@ export function MyCoursesPage() {
         <CourseList
           mode="library"
           courses={courses}
-          selectedId={selected?.course_id ?? null}
-          onSelect={handleSelect}
-          onStartRoute={(c) => {
-            const qs = courseToRouteSearchQuery(c)
-            if (!qs) {
-              alert('경로 좌표가 없습니다.')
-              return
-            }
-            navigate(`/search-route?${qs}`)
-          }}
-          onStartRide={(c) => {
-            if (!c.path || c.path.length < 2) {
-              alert('경로 좌표가 없습니다.')
-              return
-            }
-            saveCourseForRide(c)
-            navigate('/riding')
-          }}
+          selectedId={selection.selectedId}
+          onSelect={selection.select}
+          onStartRoute={startRoute}
+          onStartRide={startRide}
           onDeleteLocal={handleDelete}
           onChangeCategory={handleCategory}
         />
