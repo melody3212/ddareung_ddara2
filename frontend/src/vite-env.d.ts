@@ -28,7 +28,13 @@ declare namespace kakao {
       setCenter(latlng: LatLng): void
       setLevel(level: number, options?: object): void
       getLevel(): number
-      setBounds(bounds: LatLngBounds, padding?: number): void
+      setBounds(
+        bounds: LatLngBounds,
+        paddingTop?: number,
+        paddingRight?: number,
+        paddingBottom?: number,
+        paddingLeft?: number,
+      ): void
       getBounds(): LatLngBounds
       getCenter(): LatLng
       relayout(): void

@@ -1,0 +1,274 @@
+================================================================================
+따릉따라 — 개발 진행상황 기록
+작성일: 2026-08-05 (세션 기준)
+갱신: 2026-08-05 — 추천코스 자체테스트 + 루프 길찾기 수정
+  배포: Vercel+Supabase 염두, 당장 배포 안 함 (FastAPI는 별도 호스트 예정)
+목적: 다음에 이어서 작업할 수 있도록 상태·브랜치·실행법·미완 정리
+================================================================================
+
+1. 프로젝트 개요
+--------------------------------------------------------------------------------
+- 앱: 서울 따릉이/자전거 라이딩 앱 (따릉따라)
+- 스택: FastAPI (backend) + React/TS/Vite (frontend) + 카카오맵
+- 워크스페이스: C:\Users\dal20\Desktop\ddareung_ddara
+- 원격: https://github.com/melody3212/ddareung_ddara2.git
+
+
+2. Git 브랜치 상태
+--------------------------------------------------------------------------------
+[main]
+  - 기본 메인
+
+[feature/route-search-navigation]  (origin 동기화됨)
+  - 길찾기 / 경사도 / 네비게이션 / OSM 경사 등
+  - 대표 커밋:
+    - be5e3c4 Add route search, elevation, and in-app navigation.
+    - b9ba04d Expand home slope layer to general roads and harden map UX.
+
+[joohang]  (origin 동기화됨)  ← 주행 기능 브랜치
+  - 커밋: b3ec773 Add local ride tracking tab with GPS path, stats, and memory photos.
+  - PR 생성: https://github.com/melody3212/ddareung_ddara2/pull/new/joohang
+  - 로컬 마지막 작업 브랜치는 joohang 이었음
+
+주의:
+  - backend/.env, frontend/.env 는 커밋하지 않음 (키 포함)
+  - 개발문서 docx 는 untracked로 남겨둠
+
+
+3. 기능별 완료 상태
+--------------------------------------------------------------------------------
+
+[A] 홈 / 지도 / 플로팅 UI  — 완료 (MVP)
+  - 대여소 토글, 자전거도로 토글, 경사 토글, 내 위치
+  - 바텀시트: 날씨 / 추천코스 탭
+  - 하단 네비: 홈 / 주행 / 커뮤니티 / 마이
+  - 좌상단 길찾기 버튼
+  - 날씨 실패해도 추천코스 탭 표시
+
+[B] 날씨 + 라이딩점수  — 완료 (MVP)
+  - Open-Meteo 연동 (source=open-meteo)
+  - 기온, 체감, 강수, 바람, 습도
+  - 미세/초미세/황사 등급
+  - 라이딩 점수 score + message
+  - 시간별 hourly
+  - UI: WeatherCompact / WeatherDetails / RidingScoreCard
+  - 네트워크 실패 시 mock 폴백
+
+[C] 길찾기  — 완료 (MVP)
+  - 모드: personal(내 자전거) / ddareung(따릉이)
+  - OSRM 실제 도로 경로 (stub 아님)
+  - 따릉이: walk → bike → walk 멀티레그, 대여소 도보거리
+  - 경사 세그먼트 색상 오버레이 (급경사 |grade|≥6%)
+  - 자전거도로 비율 표시
+  - 장소명 검색 (카카오 REST + mock 폴백)
+  - 길안내 페이지: GPS 추적, 다음 안내, 진행률
+  - 페이지: /search-route, /navigate
+
+[D] 경사도  — 완료 (온디맨드 유지, 전역 상시 로딩 안 함)
+  - 홈 경사 토글: 자전거도로 + OSM 일반도로 + DEM 격자 폴백
+  - API: /api/elevation/profile, /batch, /meta
+  - API: /api/osm-roads (Overpass, 간헐 502 가능 → 프론트 폴백)
+  - 길찾기 경로는 segments 로 전체 색칠
+
+[E] 주행 탭  — 완료 (MVP, 비회원 로컬 저장)
+  경로: frontend/src/features/rides/
+  - 시작 / 일시정지 / 재개 / 종료·저장 / 버리기
+  - GPS 경로, 거리, 이동시간, 현재·최고속도
+  - 칼로리 MET 추정 (기본 체중 70kg)
+  - 이번 주 요약 + 전체 누적
+  - 기록 목록 + 상세(/riding/:rideId) 지도 경로
+  - 기록 삭제
+  - 추억 사진 1~5장 (압축 JPEG, localStorage)
+  - 저장 키:
+      ddareung_ride_records_v1
+      ddareung_ride_active_v1
+  - 정책: 비회원도 기록 가능, 기기에만 저장. 회원 동기화는 나중.
+
+[F] 추천코스  — MVP 완료 (규칙 기반, AI API 미사용)
+  - mock 6개 코스 + 촘촘한 path 좌표
+  - 난이도 필터(전체/초급/중급/고급) + 태그 칩(한강/평지/언덕/장거리/야경/내코스)
+  - 카드 선택 → 홈 지도 주황 강조 + 시트 접기 + fitBounds 패딩
+  - 이 코스로 길찾기 → /search-route?olat&…&autosearch=1
+  - 주행 시작 → sessionStorage 가이드 코스 + /riding 배너·지도 path
+  - **내 코스 (주행→코스 저장)**: 주행 상세에서 저장 → localStorage
+      키 ddareung_my_courses_v1, visibility=private, source=local
+      홈 추천코스에 병합·삭제, 공유(shared/public)는 스키마만 예약
+  - 백엔드: GET /courses?difficulty=&tag=
+  - 정책: AI 없이 mock+필터+로컬 생성. 실도로 재계산은 OSRM
+
+[G] 커뮤니티 / 마이 / 로그인  — 플레이스홀더
+  - /community, /mypage, /login 등 PlaceholderPage
+
+[H] 관리자 대시보드  — 완료 (개발용, 인증 없음)
+  - URL: /admin (와이드 레이아웃, 앱 max-w-lg 밖)
+  - 진입: 직접 URL 또는 마이페이지 → 「관리자 대시보드 열기」
+  - 프로브: health, stations, weather, courses, places, routes meta,
+            elevation, bike-paths, 경로 검색 스모크(여의도→시청)
+  - 클라이언트: API base, 카카오 JS 키 유무, secure context, GPS
+  - 로컬: 주행 기록 건수·거리·active 세션·ddareung_* 키
+  - 30초 자동 새로고침 옵션, API Docs 링크
+  - 경로: frontend/src/features/admin/
+
+
+4. 백엔드 API 요약 (prefix /api)
+--------------------------------------------------------------------------------
+  GET  /health
+  GET  /stations, /stations/meta, /stations/{id}
+  GET  /courses, /courses/{id}
+  GET  /weather
+  GET  /bike-paths, /bike-paths/meta, /bike-paths/wms
+  POST /elevation/profile, /elevation/batch
+  GET  /elevation/meta
+  GET  /places/search, /places/meta
+  POST /routes/search
+  GET  /routes/meta
+  GET  /osm-roads
+
+
+5. 환경변수 (.env — 커밋 금지)
+--------------------------------------------------------------------------------
+[backend/.env]
+  CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://192.168.219.123:5173
+  SEOUL_OPENAPI_KEY=...   (따릉이 대여소, 실측 시 수천 건)
+  KAKAO_REST_KEY=...      (장소 검색, places source=kakao 확인됨)
+  (선택) SAFEMAP_SERVICE_KEY, WEATHER_API_KEY, AIR_API_KEY
+
+[frontend/.env]
+  VITE_API_BASE_URL=/api
+    → Vite 프록시로 백엔드 연결 (폰에서도 동일 출처라 유리)
+  VITE_KAKAO_JS_KEY=...   (지도 JS SDK)
+
+카카오 REST 키는 대화 중 붙여넣어 backend/.env 에 설정함.
+채팅에 노출됐으므로 나중에 재발급 권장.
+
+
+6. 로컬 실행 방법 (PC)
+--------------------------------------------------------------------------------
+# 백엔드 (LAN/폰 대비 0.0.0.0)
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# 프론트
+cd frontend
+npx vite --host 0.0.0.0 --port 5173
+
+PC 접속:
+  http://localhost:5173
+  http://127.0.0.1:5173
+
+API 프록시:
+  frontend/vite.config.ts 에 /api → http://127.0.0.1:8000
+  client: VITE_API_BASE_URL 없으면 기본 '/api'
+
+
+7. 휴대폰에서 접속 (중요 — 미해결/부분해결)
+--------------------------------------------------------------------------------
+PC Wi-Fi IP 예시: 192.168.219.123
+SSID: U+Net560B_5G
+네트워크 프로필: Public (공용) ← 폰 직접 접속 실패 원인으로 추정
+
+[시도한 것]
+  - 백엔드 --host 0.0.0.0
+  - 프론트 host true + /api 프록시
+  - CORS에 LAN 주소 추가
+  - 방화벽 포트 규칙 추가 시도 → 관리자 권한 없어 실패
+  - 네트워크 Private 전환 시도 → 권한/정책으로 실패
+  - Cloudflare quick tunnel 사용
+
+[터널 방식 — 당시 주소, 재시작 시 변경됨]
+  https://makers-locale-ensemble-integrated.trycloudflare.com
+  실행 예:
+    npx cloudflared tunnel --url http://127.0.0.1:5173
+  장점: 방화벽 우회, HTTPS → GPS 유리
+  단점: 주소 매번 바뀜, 카카오 Web 도메인 재등록 필요
+
+[LAN 직접 접속을 살리려면 — 관리자 PowerShell 한 번]
+  Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
+  netsh advfirewall firewall add rule name="Ddareung-5173" dir=in action=allow protocol=TCP localport=5173 profile=any
+  netsh advfirewall firewall add rule name="Ddareung-8000" dir=in action=allow protocol=TCP localport=8000 profile=any
+  폰: http://192.168.219.123:5173
+  카카오 Web 도메인: http://192.168.219.123:5173 추가
+
+[GPS 참고]
+  http://192.168.x.x 는 secure context 가 아니라 일부 폰에서 위치 거부
+  HTTPS 터널이면 주행 GPS 가능성 높음
+
+
+8. 카카오 개발자 콘솔 체크리스트
+--------------------------------------------------------------------------------
+  - JavaScript 키 → frontend VITE_KAKAO_JS_KEY
+  - REST API 키 → backend KAKAO_REST_KEY
+  - Web 도메인 등록:
+      http://localhost:5173
+      http://127.0.0.1:5173
+      (폰 시) http://192.168.x.x:5173
+      (터널 시) https://xxxx.trycloudflare.com
+
+
+9. 주요 코드 위치
+--------------------------------------------------------------------------------
+frontend/src/features/
+  map/          카카오맵, 경사, 경로 오버레이, 플로팅 버튼
+  routes/       길찾기, 길안내
+  weather/      날씨, 라이딩점수
+  rides/        주행 기록 (신규)
+  courses/      추천코스 (간단)
+  places/       장소 검색
+  elevation/    경사 API 클라이언트
+  stations/     대여소
+
+backend/app/
+  api/          라우터
+  services/     elevation, route, kakao_place, osm_roads, weather, ...
+  schemas/
+
+
+10. 합의된 제품 결정
+--------------------------------------------------------------------------------
+  - 경로 탐색 핵심에 AI API 쓰지 않음
+  - 경사: 서울 전역 상시 로딩 X, 온디맨드
+  - 주행 기록: 1차 비회원 + 로컬 저장, 회원은 나중 동기화
+  - 하단 탭: 홈 / 주행 / 커뮤니티 / 마이 (길찾기는 홈 버튼)
+
+
+11. 다음에 하면 좋은 작업 (우선순위 제안)
+--------------------------------------------------------------------------------
+  (1) 폰 접속 안정화
+      - 관리자 방화벽 + Private 네트워크
+      - 또는 터널 스크립트 문서화
+  (2) 추천코스 고도화  ← 1차 완료 (2026-08-05)
+      - 이후: 날씨 점수 연동 정렬, 실도로 스냅, 더 많은 코스 데이터
+  (3) joohang ↔ feature/route-search-navigation 머지 정리
+  (4) 마이페이지: 체중 설정(칼로리), 로컬 기록 안내
+  (5) 길안내 → 주행 기록 자동 연동
+  (6) 회원/서버 rides API (나중)
+  (7) 커뮤니티 탭
+
+
+12. 세션 중 검증 메모 (실측)
+--------------------------------------------------------------------------------
+  - routes/search personal: 세그먼트·경사 색 정상 (예: 시청→경복궁 segs≈47)
+  - routes/search ddareung: walk/bike/walk legs 정상
+  - weather: open-meteo, score 동작
+  - places: KAKAO_REST_KEY 설정 후 source=kakao, 결과 다수
+  - stations: 대여소 수천 건 (서울 API)
+  - elevation batch/profile: 정상
+  - osm-roads: 엔드포인트 등록, Overpass 502 시 폴백
+  - rides: tsc 통과, 로컬 저장 구조 완료
+  - courses: mock 6개, 필터·지도·길찾기/주행 연동, tsc 통과
+
+
+13. 재개 시 체크리스트
+--------------------------------------------------------------------------------
+  [ ] git status / 브랜치 확인 (joohang 또는 작업 브랜치)
+  [ ] backend/.env, frontend/.env 키 있는지
+  [ ] 백엔드 0.0.0.0:8000 기동
+  [ ] 프론트 5173 기동, /api 프록시 확인
+  [ ] http://localhost:5173 홈·추천코스 선택·지도 경로·길찾기/주행 연동
+  [ ] (폰) 터널 또는 방화벽 처리 후 접속
+  [ ] 다음 기능: 폰 접속 / 머지 정리 / 마이페이지 등
+
+
+================================================================================
+끝. 이 파일만 보고 이어서 작업 가능하도록 작성함.
+================================================================================

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { analyzeBikeRoadCoverage, loadBikeRoads } from '../../bike-roads'
 import { KakaoMap } from '../../map'
@@ -54,11 +54,46 @@ async function enrichWithBikeRoadShare(
   }
 }
 
+function placeFromParams(
+  lat: string | null,
+  lng: string | null,
+  name: string | null,
+): SelectedPlace | null {
+  if (lat == null || lng == null) return null
+  const la = Number(lat)
+  const ln = Number(lng)
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return null
+  return {
+    name: name?.trim() || '선택한 지점',
+    lat: la,
+    lng: ln,
+    address: null,
+  }
+}
+
 export function RouteSearchPage() {
   const navigate = useNavigate()
-  const [origin, setOrigin] = useState<SelectedPlace | null>(DEFAULT.origin)
+  const [searchParams] = useSearchParams()
+  const autoSearchDone = useRef(false)
+
+  const fromQueryOrigin = placeFromParams(
+    searchParams.get('olat'),
+    searchParams.get('olng'),
+    searchParams.get('oname'),
+  )
+  const fromQueryDest = placeFromParams(
+    searchParams.get('dlat'),
+    searchParams.get('dlng'),
+    searchParams.get('dname'),
+  )
+  const courseId = searchParams.get('courseId')
+  const wantAutoSearch = searchParams.get('autosearch') === '1'
+
+  const [origin, setOrigin] = useState<SelectedPlace | null>(
+    () => fromQueryOrigin ?? DEFAULT.origin,
+  )
   const [destination, setDestination] = useState<SelectedPlace | null>(
-    DEFAULT.destination,
+    () => fromQueryDest ?? DEFAULT.destination,
   )
   const [mode, setMode] = useState<RouteMode>('personal')
   const [preference, setPreference] = useState<RoutePreference>('safe')
@@ -82,13 +117,18 @@ export function RouteSearchPage() {
   }
 
   const searchM = useMutation({
-    mutationFn: async () => {
-      if (!origin || !destination) {
+    mutationFn: async (places?: {
+      origin: SelectedPlace
+      destination: SelectedPlace
+    }) => {
+      const o = places?.origin ?? origin
+      const d = places?.destination ?? destination
+      if (!o || !d) {
         throw new Error('출발·도착 장소를 선택하세요')
       }
       const data = await routesApi.search({
-        origin: { lat: origin.lat, lng: origin.lng },
-        destination: { lat: destination.lat, lng: destination.lng },
+        origin: { lat: o.lat, lng: o.lng },
+        destination: { lat: d.lat, lng: d.lng },
         mode,
         preference,
       })
@@ -106,6 +146,20 @@ export function RouteSearchPage() {
       setError(e instanceof Error ? e.message : String(e))
     },
   })
+
+  // 추천코스 등에서 쿼리로 진입 시 1회 자동 검색
+  useEffect(() => {
+    if (autoSearchDone.current) return
+    if (!wantAutoSearch || !fromQueryOrigin || !fromQueryDest) return
+    autoSearchDone.current = true
+    setOrigin(fromQueryOrigin)
+    setDestination(fromQueryDest)
+    searchM.mutate({
+      origin: fromQueryOrigin,
+      destination: fromQueryDest,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once from query
+  }, [])
 
   const selected = useMemo(
     () => routes.find((r) => r.route_id === selectedId) ?? routes[0] ?? null,
@@ -166,12 +220,20 @@ export function RouteSearchPage() {
         {(origin || destination) && (
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow">
             {origin?.name ?? '출발?'} → {destination?.name ?? '도착?'}
+            {courseId ? ` · 코스#${courseId}` : ''}
           </div>
         )}
       </div>
 
       {/* 하단 패널 */}
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-20 pt-3">
+        {courseId && (
+          <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-800">
+            추천코스 출발·도착으로 채웠습니다. 실제 도로는 경로 검색으로
+            다시 계산됩니다.
+          </div>
+        )}
+
         <RouteSearchForm
           origin={origin}
           destination={destination}
@@ -182,7 +244,7 @@ export function RouteSearchPage() {
           onDestinationChange={setDestination}
           onModeChange={setMode}
           onPreferenceChange={setPreference}
-          onSearch={() => searchM.mutate()}
+          onSearch={() => searchM.mutate(undefined)}
           onSwap={() => {
             setOrigin(destination)
             setDestination(origin)

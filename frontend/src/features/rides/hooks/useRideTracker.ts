@@ -399,7 +399,21 @@ export function useRideTracker() {
       return null
     }
 
-    const sampled = samplePoints(s.points, 800)
+    // 마지막 유효 점이 points에 없을 수 있음 → 경로 보강
+    let rawPoints = s.points ?? []
+    if (s.lastPoint) {
+      const last = rawPoints[rawPoints.length - 1]
+      const lp = s.lastPoint
+      if (
+        !last ||
+        last.lat !== lp.lat ||
+        last.lng !== lp.lng ||
+        last.t !== lp.t
+      ) {
+        rawPoints = [...rawPoints, lp]
+      }
+    }
+    const sampled = samplePoints(rawPoints, 800)
     const path = pointsToPath(sampled)
     const avg = avgSpeedKmh(s.distanceM, moving)
     const kcal = estimateCaloriesKcal(s.distanceM, s.weightKg, moving)

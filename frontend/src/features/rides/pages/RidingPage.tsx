@@ -1,7 +1,14 @@
 /**
  * 주행 탭 — 목록 + 라이브 추적 + 주간/누적 요약
+ * 추천코스에서 진입 시 가이드 경로·배너 표시
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  clearCourseForRide,
+  difficultyLabel,
+  loadCourseForRide,
+  type Course,
+} from '../../courses'
 import { KakaoMap } from '../../map'
 import { BottomNav } from '../../../shared/ui/BottomNav'
 import { LiveRidePanel } from '../components/LiveRidePanel'
@@ -12,21 +19,39 @@ import {
   formatRideDuration,
 } from '../format'
 import { useRideTracker } from '../hooks/useRideTracker'
+import { seedDemoRideRecord } from '../lib/seedDemoRide'
 import { formatWeekRange, sumRecords, weekStats } from '../lib/rideStats'
 import { listRideRecords } from '../storage'
 import type { RideRecord } from '../types'
+import { useNavigate } from 'react-router-dom'
 
 export function RidingPage() {
+  const navigate = useNavigate()
   const tracker = useRideTracker()
   const [records, setRecords] = useState<RideRecord[]>(() => listRideRecords())
   const [toast, setToast] = useState<string | null>(null)
+  const [guideCourse, setGuideCourse] = useState<Course | null>(() =>
+    loadCourseForRide(),
+  )
 
   const allTotals = useMemo(() => sumRecords(records), [records])
   const thisWeek = useMemo(() => weekStats(records), [records])
 
+  useEffect(() => {
+    setGuideCourse(loadCourseForRide())
+  }, [])
+
   const refresh = () => setRecords(listRideRecords())
 
-  const routeOverlay = useMemo(() => {
+  const guideOverlay = useMemo(() => {
+    const path = guideCourse?.path
+    if (!path || path.length < 2) return null
+    // 라이브 추적 중에는 GPS 경로 우선
+    if (tracker.isActive && tracker.path.length >= 2) return null
+    return { path, fitBounds: !tracker.isActive }
+  }, [guideCourse, tracker.isActive, tracker.path.length])
+
+  const liveOverlay = useMemo(() => {
     if (!tracker.isActive || tracker.path.length < 2) {
       if (tracker.isActive && tracker.position) {
         return {
@@ -42,15 +67,16 @@ export function RidingPage() {
     }
   }, [tracker.isActive, tracker.path, tracker.position])
 
+  const routeOverlay = liveOverlay ?? guideOverlay
+
   const handleStop = () => {
     const rec = tracker.stop()
     refresh()
     if (rec) {
       setToast(
-        `저장됨 · ${formatRideDistance(rec.distanceM)} · ${formatRideCalories(rec.caloriesKcal)} kcal`,
+        `저장됨 · ${formatRideDistance(rec.distanceM)} · ${formatRideCalories(rec.caloriesKcal)} kcal · 상세에서 코스 저장 가능`,
       )
-      window.setTimeout(() => setToast(null), 3500)
-      // 방금 저장한 기록 상세로 이동할지 선택 — 목록에 남기고 토스트만
+      window.setTimeout(() => setToast(null), 4500)
     } else {
       setToast('이동이 너무 짧아 저장하지 않았습니다. (20m 또는 30초 이상)')
       window.setTimeout(() => setToast(null), 3500)
@@ -64,6 +90,24 @@ export function RidingPage() {
     window.setTimeout(() => setToast(null), 2500)
   }
 
+  const dismissGuide = () => {
+    clearCourseForRide()
+    setGuideCourse(null)
+  }
+
+  /** 실외 이동 없이 코스 저장 UI 테스트용 */
+  const handleSeedDemo = () => {
+    const rec = seedDemoRideRecord()
+    refresh()
+    setToast(
+      `데모 기록 추가됨 · ${formatRideDistance(rec.distanceM)} · 상세에서 코스 저장 가능`,
+    )
+    window.setTimeout(() => setToast(null), 4000)
+    navigate(`/riding/${rec.id}`)
+  }
+
+  const showMap = tracker.isActive || Boolean(guideOverlay)
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-50 pb-16">
       <header className="border-b border-slate-200 bg-white px-4 py-3">
@@ -73,7 +117,29 @@ export function RidingPage() {
         </p>
       </header>
 
-      {tracker.isActive && (
+      {guideCourse && (
+        <div className="flex items-start justify-between gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold text-blue-800">추천코스 가이드</p>
+            <p className="truncate text-sm font-semibold text-slate-800">
+              {guideCourse.title}
+            </p>
+            <p className="text-[11px] text-slate-600">
+              {guideCourse.distance_km}km · {guideCourse.duration_min}분 ·{' '}
+              {difficultyLabel(guideCourse.difficulty)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={dismissGuide}
+            className="shrink-0 rounded-lg bg-white px-2 py-1 text-[11px] font-medium text-slate-600 shadow-sm"
+          >
+            해제
+          </button>
+        </div>
+      )}
+
+      {showMap && (
         <div className="relative h-[28vh] min-h-[160px] max-h-[240px] w-full shrink-0 border-b border-slate-200">
           <KakaoMap
             showStations={false}
@@ -148,6 +214,22 @@ export function RidingPage() {
                 )}
               </p>
             </section>
+
+            {/* 실외 이동 없이 코스 저장 테스트용 */}
+            <section className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/80 p-3">
+              <p className="text-[11px] font-bold text-amber-900">테스트용</p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-amber-800/90">
+                밖에 나가지 않고도 「코스로 저장」을 시험할 수 있어요. 여의도 샘플
+                경로가 있는 가짜 주행 기록을 추가합니다.
+              </p>
+              <button
+                type="button"
+                onClick={handleSeedDemo}
+                className="mt-2 w-full rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-amber-600 active:scale-[0.99]"
+              >
+                데모 주행 기록 추가 → 상세로
+              </button>
+            </section>
           </>
         )}
 
@@ -164,7 +246,9 @@ export function RidingPage() {
           photoBusy={tracker.photoBusy}
           photoError={tracker.photoError}
           maxPhotos={tracker.maxPhotos}
-          onAddPhoto={tracker.addPhotoFromFile}
+          onAddPhoto={(file) => {
+            void tracker.addPhotoFromFile(file)
+          }}
           onRemovePhoto={tracker.removePhoto}
           onStart={tracker.start}
           onPause={tracker.pause}

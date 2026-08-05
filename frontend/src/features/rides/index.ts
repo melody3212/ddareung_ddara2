@@ -25,5 +25,6 @@ export {
   formatRideSpeed,
 } from './format'
 export { useRideTracker } from './hooks/useRideTracker'
+export { seedDemoRideRecord } from './lib/seedDemoRide'
 export { RidingPage } from './pages/RidingPage'
 export { RideDetailPage } from './pages/RideDetailPage'
