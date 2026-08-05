@@ -25,6 +25,14 @@ export {
   formatRideSpeed,
 } from './format'
 export { useRideTracker } from './hooks/useRideTracker'
+export type { RideTrackerApi } from './hooks/useRideTracker'
+export { useRideRecords } from './hooks/useRideRecords'
+export { useToast } from './hooks/useToast'
 export { seedDemoRideRecord } from './lib/seedDemoRide'
+export {
+  finalizeSessionToRecord,
+  isRideTooShort,
+  sessionMovingMs,
+} from './lib/sessionMath'
 export { RidingPage } from './pages/RidingPage'
 export { RideDetailPage } from './pages/RideDetailPage'

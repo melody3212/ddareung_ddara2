@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminDashboardPage } from './features/admin'
+import { MyCoursesPage } from './features/courses'
 import { NavigationPage, RouteSearchPage } from './features/routes'
 import { RideDetailPage, RidingPage } from './features/rides'
 import { SplashPage } from './pages/SplashPage'
@@ -24,6 +25,7 @@ function AppFrame() {
       <Routes>
         <Route path="/" element={<SplashPage />} />
         <Route path="/home" element={<HomePage />} />
+        <Route path="/my-courses" element={<MyCoursesPage />} />
         <Route
           path="/login"
           element={<PlaceholderPage title="로그인" note="확장: JWT 로그인" />}

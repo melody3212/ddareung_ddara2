@@ -38,6 +38,8 @@ export type SaveCourseFromRideInput = {
   description?: string
   /** 기본 private — 나중에 shared/public 공유 */
   visibility?: LocalCourseRecord['visibility']
+  /** 여가 / 출퇴근 / 기타 */
+  category?: LocalCourseRecord['category']
 }
 
 /** 코스 저장용 path 추출 (path / points 모두 시도) */
@@ -96,5 +98,8 @@ export function buildCourseFromRide(
     fromRideId: ride.id,
     serverId: null,
     authorLabel: '나',
+    category: input.category ?? 'leisure',
+    savedFrom: 'ride',
+    originCourseId: null,
   }
 }

@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   CourseList,
   courseToRouteSearchQuery,
   coursesApi,
-  deleteLocalCourse,
-  isLocalCourse,
-  mergeCoursesWithLocal,
   saveCourseForRide,
+  saveOfficialToMyCourses,
+  withOfficialSource,
   type Course,
+  type CourseCategory,
 } from '../features/courses'
 import { KakaoMap, MapButtons } from '../features/map'
 import { stationsApi } from '../features/stations'
@@ -49,17 +49,7 @@ export function HomePage() {
     queryKey: ['courses'],
     queryFn: () => coursesApi.list(),
   })
-  /** 로컬 내 코스 변경 시 목록 갱신 */
-  const [localTick, setLocalTick] = useState(0)
-  useEffect(() => {
-    const bump = () => setLocalTick((n) => n + 1)
-    window.addEventListener('focus', bump)
-    window.addEventListener('storage', bump)
-    return () => {
-      window.removeEventListener('focus', bump)
-      window.removeEventListener('storage', bump)
-    }
-  }, [])
+  const [saveToast, setSaveToast] = useState<string | null>(null)
 
   const stationsMetaQ = useQuery({
     queryKey: ['stations-meta'],
@@ -67,11 +57,10 @@ export function HomePage() {
     staleTime: 60_000,
   })
 
-  const allCourses = useMemo(
-    () => mergeCoursesWithLocal(coursesQ.data ?? []),
-    // localTick: 내 코스 저장/삭제 반영
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coursesQ.data, localTick],
+  /** 홈 추천 = 공식만 (저장 목록은 내 코스 탭) */
+  const recommendCourses = useMemo(
+    () => withOfficialSource(coursesQ.data ?? []),
+    [coursesQ.data],
   )
 
   const courseOverlay = useMemo(() => {
@@ -115,14 +104,16 @@ export function HomePage() {
     navigate('/riding')
   }
 
-  const handleDeleteLocal = (course: Course) => {
-    if (!isLocalCourse(course)) return
-    if (!window.confirm(`「${course.title}」 내 코스를 삭제할까요?`)) return
-    deleteLocalCourse(course.course_id)
-    if (selectedCourse?.course_id === course.course_id) {
-      setSelectedCourse(null)
+  const handleSaveToMy = (course: Course, category: CourseCategory) => {
+    try {
+      saveOfficialToMyCourses(course, category)
+      const label =
+        category === 'commute' ? '출퇴근' : category === 'leisure' ? '여가' : '기타'
+      setSaveToast(`내 코스(${label})에 담았습니다`)
+      window.setTimeout(() => setSaveToast(null), 2800)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장 실패')
     }
-    setLocalTick((n) => n + 1)
   }
 
   return (
@@ -275,14 +266,23 @@ export function HomePage() {
                     코스 불러오는 중…
                   </p>
                 )}
+                {saveToast && (
+                  <p className="rounded-xl bg-violet-600 px-3 py-2 text-center text-[11px] font-semibold text-white">
+                    {saveToast} ·{' '}
+                    <Link to="/my-courses" className="underline">
+                      내 코스 보기
+                    </Link>
+                  </p>
+                )}
                 {!coursesQ.isLoading && (
                   <CourseList
-                    courses={allCourses}
+                    mode="recommend"
+                    courses={recommendCourses}
                     selectedId={selectedCourse?.course_id ?? null}
                     onSelect={handleSelectCourse}
                     onStartRoute={handleStartRoute}
                     onStartRide={handleStartRide}
-                    onDeleteLocal={handleDeleteLocal}
+                    onSaveToMy={handleSaveToMy}
                   />
                 )}
               </>

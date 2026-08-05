@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 
-/** 하단 탭: 홈 / 주행 / 커뮤니티 / 마이 */
+/** 하단 탭: 홈 / 내 코스 / 주행 / 커뮤니티 / 마이 */
 const items: Array<{
   to: string
   label: string
   icon: (active: boolean) => ReactNode
 }> = [
   { to: '/home', label: '홈', icon: IconHome },
+  { to: '/my-courses', label: '내 코스', icon: IconMyCourses },
   { to: '/riding', label: '주행', icon: IconRide },
   { to: '/community', label: '커뮤니티', icon: IconCommunity },
   { to: '/mypage', label: '마이', icon: IconMy },
@@ -43,7 +44,7 @@ export function BottomNav() {
                     </span>
                     <span
                       className={[
-                        'text-[10px] leading-none',
+                        'max-w-[3.5rem] truncate text-[9px] leading-none',
                         isActive ? 'font-bold' : 'font-medium',
                       ].join(' ')}
                     >
@@ -77,6 +78,25 @@ function IconHome(active: boolean) {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"
+      />
+    </svg>
+  )
+}
+
+function IconMyCourses(active: boolean) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-6 w-6 ${iconClass(active)}`}
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      aria-hidden
+    >
+      {/* 북마크 / 저장 코스 */}
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7 4h10a1 1 0 0 1 1 1v15l-6-3.5L6 20V5a1 1 0 0 1 1-1Z"
       />
     </svg>
   )
