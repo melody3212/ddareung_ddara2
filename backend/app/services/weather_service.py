@@ -13,7 +13,9 @@ from typing import Any
 
 import httpx
 
+from app.services.kma_warnings import fetch_kma_warnings, merge_alerts
 from app.services.riding_score import WeatherInputs, compute_riding_score
+from app.services.weather_alerts import build_weather_alerts
 
 _WMO: dict[int, tuple[str, str]] = {
     0: ("맑음", "☀️"),
@@ -130,6 +132,7 @@ async def fetch_weather_bundle(lat: float, lng: float) -> dict[str, Any]:
         "precipitation_probability,weather_code,wind_speed_10m"
         "&hourly=temperature_2m,apparent_temperature,precipitation_probability,"
         "weather_code,wind_speed_10m,relative_humidity_2m"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
         "&timezone=Asia%2FSeoul&forecast_days=2"
         "&wind_speed_unit=ms"
     )
@@ -226,6 +229,46 @@ async def fetch_weather_bundle(lat: float, lng: float) -> dict[str, Any]:
         if len(hourly_out) >= 12:
             break
 
+    daily = w.get("daily") or {}
+    dmax_list = daily.get("temperature_2m_max") or []
+    dmin_list = daily.get("temperature_2m_min") or []
+    daily_max = _f(dmax_list[0], temp) if dmax_list else max(
+        [temp, feels] + [x["temp_c"] for x in hourly_out[:8]],
+        default=temp,
+    )
+    daily_min = _f(dmin_list[0], temp) if dmin_list else min(
+        [temp, feels] + [x["temp_c"] for x in hourly_out[:8]],
+        default=temp,
+    )
+
+    condition_alerts = build_weather_alerts(
+        temp_c=temp,
+        feels_like_c=feels,
+        precip_prob=pop,
+        wind_ms=wind,
+        humidity=humidity,
+        weather_code=wcode,
+        pm10_grade=pm10_g,
+        pm25_grade=pm25_g,
+        dust_grade=dust_g,
+        daily_max_c=daily_max,
+        daily_min_c=daily_min,
+    )
+    # 지역(수도권) 특보 + 조건 안내 → 라이딩 점수 카드
+    # 전국 특보 → 날씨 탭 하단
+    kma_regional, kma_national, kma_note = await fetch_kma_warnings()
+    alerts = merge_alerts(kma_regional, condition_alerts)
+    alerts_all = list(kma_national)
+    if kma_regional or kma_national:
+        alerts_note = f"{kma_note}."
+        source = "open-meteo+kma"
+    else:
+        alerts_note = (
+            "현재 기상·대기 조건 기반 안내입니다. 기상청 공식 특보와 다를 수 있습니다. "
+            f"({kma_note})"
+        )
+        source = "open-meteo"
+
     bundle = {
         "lat": lat,
         "lng": lng,
@@ -250,7 +293,10 @@ async def fetch_weather_bundle(lat: float, lng: float) -> dict[str, Any]:
         "score": score,
         "message": message,
         "hourly": hourly_out,
-        "source": "open-meteo",
+        "alerts": alerts,
+        "alerts_all": alerts_all,
+        "alerts_note": alerts_note,
+        "source": source,
     }
 
     _cache["ts"] = now_ts

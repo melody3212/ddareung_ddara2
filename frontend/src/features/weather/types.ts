@@ -11,6 +11,17 @@ export type HourlyWeather = {
   humidity: number
 }
 
+export type WeatherAlertLevel = 'info' | 'watch' | 'warning' | string
+
+export type WeatherAlert = {
+  code: string
+  level: WeatherAlertLevel
+  title: string
+  message: string
+  icon: string
+  source: string
+}
+
 export type Weather = {
   lat: number
   lng: number
@@ -35,5 +46,10 @@ export type Weather = {
   score: number
   message: string
   hourly: HourlyWeather[]
+  /** 해당 지역 + 조건 안내 (라이딩 점수 카드) */
+  alerts?: WeatherAlert[]
+  /** 전국 기상특보 (날씨 탭 하단) */
+  alerts_all?: WeatherAlert[]
+  alerts_note?: string | null
   source: string
 }

@@ -1,6 +1,6 @@
 import { useEffect, type MutableRefObject, type RefObject } from 'react'
 import type { Station } from '../../stations'
-import { escapeHtml } from '../lib/escapeHtml'
+import { buildStationInfoHtml } from '../lib/stationInfoHtml'
 
 type MapStatus = 'loading' | 'ready' | 'error'
 
@@ -15,7 +15,7 @@ type Args = {
   infoRef: MutableRefObject<kakao.maps.InfoWindow | null>
 }
 
-/** 따릉이 대여소 마커 + 클러스터 */
+/** 따릉이 대여소 마커 + 클러스터 + 카드형 정보 팝업 */
 export function useStationMarkers({
   mapRef,
   status,
@@ -48,20 +48,10 @@ export function useStationMarkers({
         image: markerImageRef.current ?? undefined,
       })
       maps.event.addListener(marker, 'click', () => {
-        const detail = [
-          s.bike_count != null ? `남은 자전거: ${s.bike_count} 대` : null,
-          s.rack_tot_cnt != null ? `거치대 ${s.rack_tot_cnt}` : null,
-        ].filter(Boolean)
         const iw = infoRef.current
-        if (iw) {
-          iw.setContent(
-            `<div style="padding:8px 10px;font-size:12px;min-width:140px;line-height:1.4;">
-              <strong>${escapeHtml(s.name)}</strong><br/>
-              <span style="color:#64748b">${escapeHtml(detail.join(' · ') || '정보 없음')}</span>
-            </div>`,
-          )
-          iw.open(map, marker)
-        }
+        if (!iw) return
+        iw.setContent(buildStationInfoHtml(s))
+        iw.open(map, marker)
       })
       markers.push(marker)
     })

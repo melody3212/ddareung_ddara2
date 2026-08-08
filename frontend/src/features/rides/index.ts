@@ -34,5 +34,12 @@ export {
   isRideTooShort,
   sessionMovingMs,
 } from './lib/sessionMath'
+export {
+  formatWeekRange,
+  sumRecords,
+  weekStats,
+} from './lib/rideStats'
+export type { RideTotals, WeekRideStats } from './lib/rideStats'
+export { RideRecordCard } from './components/RideRecordCard'
 export { RidingPage } from './pages/RidingPage'
 export { RideDetailPage } from './pages/RideDetailPage'

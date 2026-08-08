@@ -127,7 +127,11 @@ export function KakaoMap({
         }
 
         mapRef.current = map
-        infoRef.current = new maps.InfoWindow({ zIndex: 3 })
+        // removable: 닫기 버튼 · 대여소 카드 팝업용
+        infoRef.current = new maps.InfoWindow({
+          zIndex: 12,
+          removable: true,
+        })
 
         try {
           markerImageRef.current = new maps.MarkerImage(

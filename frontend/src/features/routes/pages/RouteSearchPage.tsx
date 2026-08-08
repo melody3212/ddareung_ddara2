@@ -9,6 +9,7 @@ import { routesApi } from '../api'
 import { RouteResultCard } from '../components/RouteResultCard'
 import { RouteSearchForm } from '../components/RouteSearchForm'
 import { saveNavSession } from '../navSession'
+import { loadPreferences } from '../../profile/preferencesStorage'
 import { ROUTE_PRESETS } from '../presets'
 import type { RouteMode, RoutePreference, RouteSearchResult } from '../types'
 
@@ -95,7 +96,9 @@ export function RouteSearchPage() {
   const [destination, setDestination] = useState<SelectedPlace | null>(
     () => fromQueryDest ?? DEFAULT.destination,
   )
-  const [mode, setMode] = useState<RouteMode>('personal')
+  const [mode, setMode] = useState<RouteMode>(
+    () => loadPreferences().defaultRouteMode,
+  )
   const [preference, setPreference] = useState<RoutePreference>('safe')
   const [routes, setRoutes] = useState<RouteSearchResult[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)

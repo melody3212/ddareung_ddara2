@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     # 원본 VITE_BIKE_API_KEY 별칭 지원
     bike_api_key: str | None = None
     weather_api_key: str | None = None
+    # 기상청 API 허브 인증키 — https://apihub.kma.go.kr/ (예특보·기상특보)
+    kma_apihub_key: str | None = None
     air_api_key: str | None = None
     redis_url: str | None = None
     # 생활안전지도(safemap) 자전거길 WMS — https://www.safemap.go.kr/opna/data/dataViewRenew.do?objtId=219

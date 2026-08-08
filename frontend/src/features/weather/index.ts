@@ -1,4 +1,5 @@
-export type { HourlyWeather, Weather } from './types'
+export type { HourlyWeather, Weather, WeatherAlert } from './types'
+export { WeatherAlerts } from './components/WeatherAlerts'
 export { weatherApi } from './api'
 export { WeatherCompact } from './components/WeatherCompact'
 export { WeatherDetails } from './components/WeatherDetails'

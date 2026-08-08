@@ -20,6 +20,7 @@ import {
   loadActiveRideSession,
   saveActiveRideSession,
 } from '../storage'
+import { getRiderWeightKg } from '../../profile/preferencesStorage'
 import {
   DEFAULT_RIDER_WEIGHT_KG,
   type ActiveRideSession,
@@ -247,7 +248,7 @@ export function useRideTracker(): RideTrackerApi {
     const session = createEmptySession(
       newRideId(),
       now,
-      DEFAULT_RIDER_WEIGHT_KG,
+      getRiderWeightKg() || DEFAULT_RIDER_WEIGHT_KG,
     )
     persistSession(session)
     setStatus('recording')

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminDashboardPage } from './features/admin'
 import { MyCoursesPage } from './features/courses'
+import { MyPage, SettingsPage } from './features/profile'
 import { NavigationPage, RouteSearchPage } from './features/routes'
 import { RideDetailPage, RidingPage } from './features/rides'
 import { SplashPage } from './pages/SplashPage'
@@ -39,7 +40,8 @@ function AppFrame() {
           path="/community"
           element={<PlaceholderPage title="커뮤니티" note="확장 후반" />}
         />
-        <Route path="/mypage" element={<PlaceholderPage title="마이페이지" />} />
+        <Route path="/mypage" element={<MyPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

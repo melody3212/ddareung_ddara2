@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query
 
 from app.core.config import get_settings
-from app.schemas.weather import HourlyItem, WeatherResponse
+from app.schemas.weather import HourlyItem, WeatherAlert, WeatherResponse
 from app.services.riding_score import WeatherInputs, compute_riding_score
+from app.services.weather_alerts import build_weather_alerts
 from app.services.weather_service import fetch_weather_bundle
 
 router = APIRouter(prefix="/weather", tags=["weather"])
@@ -36,6 +37,19 @@ def _mock(lat: float, lng: float) -> WeatherResponse:
         )
         for h in range(12)
     ]
+    raw_alerts = build_weather_alerts(
+        temp_c=inputs.temp_c,
+        feels_like_c=inputs.feels_like_c,
+        precip_prob=inputs.precip_prob,
+        wind_ms=inputs.wind_ms,
+        humidity=inputs.humidity,
+        weather_code=0,
+        pm10_grade=1,
+        pm25_grade=1,
+        dust_grade=1,
+        daily_max_c=inputs.temp_c,
+        daily_min_c=inputs.temp_c,
+    )
     return WeatherResponse(
         lat=lat,
         lng=lng,
@@ -60,6 +74,8 @@ def _mock(lat: float, lng: float) -> WeatherResponse:
         score=score,
         message=message,
         hourly=hourly,
+        alerts=[WeatherAlert(**a) for a in raw_alerts],
+        alerts_all=[],
         source="mock",
     )
 

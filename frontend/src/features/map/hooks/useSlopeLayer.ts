@@ -37,8 +37,8 @@ type Args = {
 
 /**
  * 경사도 레이어
- * - 자전거 도로(bikeload) + OSM 일반 도로(Overpass)
- * - 길찾기에 일반도로가 섞여도 홈에서 지형 경사를 같이 볼 수 있음
+ * - 자전거 도로(bikeload) + OSM 일반 도로(Overpass) **선형만** 색칠
+ * - 격자(DEM grid) 폴백은 쓰지 않음 — 도로가 아닌 바둑판 표시가 되어 UX 혼란
  */
 export function useSlopeLayer({
   mapRef,
@@ -99,7 +99,8 @@ export function useSlopeLayer({
           }
         }
 
-        // 2) OSM 일반 도로 (뷰포트 bbox)
+        // 2) OSM 일반 도로 (뷰포트 bbox) — 실제 도로 선형만 사용
+        //    ※ 예전: 도로가 적으면 DEM 가로·세로 격자 폴백 → 바둑판처럼 보여 제거함
         let osmNote = ''
         try {
           const m = mapRef.current
@@ -135,40 +136,11 @@ export function useSlopeLayer({
               kind: 'osm',
             })
           }
-        } catch {
-          // Overpass 실패 시 DEM 격자 폴백
-          osmNote = ' · OSM 실패→지형격자'
-        }
-
-        // 3) 일반도로가 거의 없으면 DEM 격자 경로 (길찾기에 쓰이는 일반도로 구간 대비)
-        const osmSoFar = paths.filter((p) => p.kind === 'osm').length
-        if (osmSoFar < 8) {
-          const span = 0.012
-          const n = 5
-          for (let i = 0; i <= n; i++) {
-            const t = i / n
-            const lat = cLat - span + t * 2 * span
-            const lng = cLng - span + t * 2 * span
-            // 가로선
-            paths.push({
-              key: `grid-h-${i}`,
-              coordinates: [
-                [cLng - span, lat],
-                [cLng + span, lat],
-              ],
-              kind: 'osm',
-            })
-            // 세로선
-            paths.push({
-              key: `grid-v-${i}`,
-              coordinates: [
-                [lng, cLat - span],
-                [lng, cLat + span],
-              ],
-              kind: 'osm',
-            })
+          if ((osm.roads?.length ?? 0) === 0) {
+            osmNote = ' · OSM 도로 없음'
           }
-          if (!osmNote) osmNote = ' · 일반도로+지형격자'
+        } catch {
+          osmNote = ' · OSM 실패(자전거도로만)'
         }
 
         // 중복 키 제거 · 상한
